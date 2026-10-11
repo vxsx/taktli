@@ -30,9 +30,10 @@ afterEach(() => {
 });
 
 describe('Grid', () => {
-  it('renders one cell per track and step', () => {
+  it('renders one cell per visible track and step', () => {
     const { container } = render(<Grid />);
-    expect(container.querySelectorAll('[data-cell]')).toHaveLength(11 * 16);
+    expect(container.querySelectorAll('[data-cell]')).toHaveLength(9 * 16);
+    expect(container.querySelector('[data-track="crossStick"]')).toBeNull();
   });
 
   it('toggles a note with a tap', () => {
@@ -126,7 +127,7 @@ describe('Grid', () => {
     appStore.getState().apply((p) => ops.setTrackHidden(p, 'tom2', true));
     const { container } = render(<Grid />);
     expect(container.querySelector('[data-track="tom2"]')).toBeNull();
-    expect(container.querySelectorAll('[data-cell]')).toHaveLength(10 * 16);
+    expect(container.querySelectorAll('[data-cell]')).toHaveLength(8 * 16);
   });
 
   it('renders triplet beats with three cells', () => {

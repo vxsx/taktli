@@ -1,4 +1,4 @@
-.strip { display: flex; align-items: center; gap: 6px; height: 34px; flex-shrink: 0; }
+.strip { display: flex; align-items: center; gap: 6px; height: 30px; flex-shrink: 0; }
 .chips { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { min-width: 34px; flex-shrink: 0; touch-action: none; font-variant-numeric: tabular-nums; }

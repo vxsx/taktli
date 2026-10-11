@@ -60,6 +60,13 @@ describe('factory', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('hides pedal hi-hat and cross-stick by default so the grid fits short phone screens', () => {
+    const p = createProject();
+    expect(Object.entries(p.tracks).filter(([, s]) => s.hidden).map(([t]) => t)).toEqual(['hhPedal', 'crossStick']);
+    expect(Object.values(p.tracks).every((s) => !s.muted)).toBe(true);
+    expect(createDemoProject().tracks.hhPedal.hidden).toBe(true);
+  });
+
   it('creates patterns with one bar and no swing', () => {
     const pat = createPattern('Q');
     expect(pat.bars).toHaveLength(1);

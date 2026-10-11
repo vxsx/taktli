@@ -35,9 +35,12 @@ export function createPattern(name: string, id: string = newId()): Pattern {
   return { id, name, swing: 0, bars: [createBar()] };
 }
 
+/** Less common voices start hidden so the remaining rows fit a phone held in landscape. */
+const HIDDEN_BY_DEFAULT: ReadonlySet<TrackId> = new Set(['hhPedal', 'crossStick']);
+
 export function defaultTrackSettings(): Record<TrackId, TrackSettings> {
   const s = {} as Record<TrackId, TrackSettings>;
-  for (const id of TRACK_IDS) s[id] = { muted: false, hidden: false };
+  for (const id of TRACK_IDS) s[id] = { muted: false, hidden: HIDDEN_BY_DEFAULT.has(id) };
   return s;
 }
 
