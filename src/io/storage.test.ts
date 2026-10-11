@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBar, createDemoProject, createProject } from '../model/factory';
-import { createAutosaver, KEYS, ProjectStorage, StorageUnavailableError, type KeyValueStore } from './storage';
+import { browserStore, createAutosaver, KEYS, ProjectStorage, StorageUnavailableError, type KeyValueStore } from './storage';
 
 class MemoryStore implements KeyValueStore {
   map = new Map<string, string>();
@@ -8,6 +8,28 @@ class MemoryStore implements KeyValueStore {
   setItem(k: string, v: string) { this.map.set(k, v); }
   removeItem(k: string) { this.map.delete(k); }
 }
+
+describe('browserStore', () => {
+  it('keeps a full but readable localStorage usable so saved projects still load', () => {
+    const full = new MemoryStore();
+    full.setItem = () => {
+      throw new Error('QuotaExceededError');
+    };
+    expect(browserStore(full)).toBe(full);
+  });
+
+  it('rejects storage that throws on access', () => {
+    const blocked = {
+      getItem: () => {
+        throw new Error('SecurityError');
+      },
+      setItem: () => {},
+      removeItem: () => {},
+    };
+    expect(browserStore(blocked)).toBeNull();
+    expect(browserStore(undefined)).toBeNull();
+  });
+});
 
 describe('ProjectStorage', () => {
   it('saves, loads and lists projects newest first', () => {

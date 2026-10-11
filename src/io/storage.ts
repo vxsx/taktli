@@ -27,14 +27,16 @@ export const KEYS = {
   project: (id: string) => `dm:project:${id}`,
 };
 
-/** localStorage if it is usable (it throws in some private modes), else null. */
-export function browserStore(): KeyValueStore | null {
+/**
+ * localStorage if it can be read (it throws in some privacy modes), else null.
+ * Availability is judged by reading only: a full store must still load existing projects;
+ * write failures surface later as StorageUnavailableError.
+ */
+export function browserStore(candidate: KeyValueStore | null | undefined = globalThis.localStorage): KeyValueStore | null {
   try {
-    const s = globalThis.localStorage;
-    if (!s) return null;
-    s.setItem('dm:probe', '1');
-    s.removeItem('dm:probe');
-    return s;
+    if (!candidate) return null;
+    candidate.getItem(KEYS.index);
+    return candidate;
   } catch {
     return null;
   }
