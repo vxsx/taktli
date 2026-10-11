@@ -25,6 +25,9 @@ interface Active {
   startVelocity: number;
   kind: 'pending' | 'slide' | 'paint' | 'volume';
   value: number;
+  /** Last cell a paint/volume drag reached, so fast moves can fill the cells in between. */
+  last: CellHit | null;
+  lastValue: number;
 }
 
 export function cellFromElement(el: Element | null | undefined): CellHit | null {
@@ -45,13 +48,44 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
     const edit = (a: Active, h: CellHit, v: number) => (p: Project) =>
       setVelocity(p, a.patternId, a.barIndex, h.beat, h.track, h.cell, v);
     const hitAt = (x: number, y: number) => cellFromElement(document.elementFromPoint?.(x, y));
-    const applyVolume = (a: Active, h: CellHit, clientY: number) => {
-      if (velocityOf(a, h) <= 0) return;
+    const applyMany = (a: Active, updates: [CellHit, number][]) => {
+      if (updates.length === 0) return;
+      store.getState().applyTransient((p) => updates.reduce((acc, [h, v]) => edit(a, h, v)(acc), p));
+    };
+    /** Cells of the gesture's row from `from` to `to`, inclusive, in drag order. */
+    const rowSpan = (a: Active, from: CellHit, to: CellHit): CellHit[] => {
+      const row = a.hit.el.parentElement?.parentElement;
+      const cells = Array.from(row?.querySelectorAll<HTMLElement>('[data-cell]') ?? []);
+      const i0 = cells.indexOf(from.el);
+      const i1 = cells.indexOf(to.el);
+      if (i0 < 0 || i1 < 0) return [from, to];
+      const step = i1 >= i0 ? 1 : -1;
+      const out: CellHit[] = [];
+      for (let i = i0; i !== i1 + step; i += step) {
+        const h = cellFromElement(cells[i]);
+        if (h) out.push(h);
+      }
+      return out;
+    };
+    const paintTo = (a: Active, h: CellHit) => {
+      applyMany(a, rowSpan(a, a.last ?? a.hit, h).map((c): [CellHit, number] => [c, a.value]));
+      a.last = h;
+    };
+    /** Volume mode: sets the touched note and interpolates the notes skipped since the last move. */
+    const volumeTo = (a: Active, h: CellHit, clientY: number) => {
       const r = h.el.getBoundingClientRect();
       const v = volumeFromY(r.height > 0 ? (clientY - r.top) / r.height : 0.5);
+      const from = a.last;
+      const span = from ? rowSpan(a, from, h) : [h];
+      const n = span.length - 1;
+      const updates = span
+        .map((c, k): [CellHit, number] => [c, from && n > 0 ? Math.round(a.lastValue + ((v - a.lastValue) * k) / n) : v])
+        .filter(([c], k) => (!from || k > 0) && velocityOf(a, c) > 0);
+      applyMany(a, updates);
+      a.last = h;
+      a.lastValue = v;
       a.value = v;
-      store.getState().applyTransient(edit(a, h, v));
-      bubble.current?.show(r, v);
+      if (velocityOf(a, h) > 0) bubble.current?.show(r, v);
     };
 
     return {
@@ -66,14 +100,14 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
         const a: Active = {
           pointerId: e.pointerId, hit, patternId: ui.patternId, barIndex: ui.barIndex,
           startX: e.clientX, startY: e.clientY, startVelocity: 0,
-          kind: ui.editMode === 'volume' ? 'volume' : 'pending', value: 0,
+          kind: ui.editMode === 'volume' ? 'volume' : 'pending', value: 0, last: null, lastValue: 0,
         };
         a.startVelocity = velocityOf(a, hit);
         a.value = a.startVelocity;
         active.current = a;
         if (a.kind === 'volume') {
           store.getState().beginGesture();
-          applyVolume(a, hit, e.clientY);
+          volumeTo(a, hit, e.clientY);
         }
       },
 
@@ -82,7 +116,7 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
         if (!a || e.pointerId !== a.pointerId) return;
         if (a.kind === 'volume') {
           const h = hitAt(e.clientX, e.clientY);
-          if (h && h.track === a.hit.track) applyVolume(a, h, e.clientY);
+          if (h && h.track === a.hit.track) volumeTo(a, h, e.clientY);
           return;
         }
         if (a.kind === 'pending') {
@@ -92,7 +126,7 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
           store.getState().beginGesture();
           if (kind === 'paint') {
             a.value = paintValue(a.startVelocity);
-            store.getState().applyTransient(edit(a, a.hit, a.value));
+            paintTo(a, a.hit);
           }
         }
         if (a.kind === 'slide') {
@@ -102,7 +136,7 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
           bubble.current?.show(a.hit.el.getBoundingClientRect(), v);
         } else if (a.kind === 'paint') {
           const h = hitAt(e.clientX, e.clientY);
-          if (h && h.track === a.hit.track) store.getState().applyTransient(edit(a, h, a.value));
+          if (h && h.track === a.hit.track) paintTo(a, h);
         }
       },
 

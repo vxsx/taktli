@@ -80,6 +80,34 @@ describe('Grid', () => {
     expect(appStore.getState().past).toHaveLength(1);
   });
 
+  it('paints every cell passed even when pointer moves are sparse', () => {
+    const { container } = render(<Grid />);
+    document.elementFromPoint = vi.fn((x: number) => (x === 200 ? cellEl(container, 'kick', 1, 2) : null));
+    const start = cellEl(container, 'kick', 0, 1);
+    down(start, 0, 10);
+    move(start, 200, 10); // one fast move lands six cells further along the row
+    up(start, 200, 10);
+    const row = [0, 1].flatMap((beat) => [0, 1, 2, 3].map((i) => vel('kick', beat, i)));
+    expect(row).toEqual([0, 100, 100, 100, 100, 100, 100, 0]);
+    expect(appStore.getState().past).toHaveLength(1);
+  });
+
+  it('interpolates volume across skipped notes in volume mode', () => {
+    const pid = appStore.getState().ui.patternId;
+    appStore.getState().apply((p) => [0, 1, 2, 3].reduce((acc, i) => ops.setVelocity(acc, pid, 0, 0, 'hhClosed', i, 100), p));
+    appStore.getState().setUi({ editMode: 'volume' });
+    const { container } = render(<Grid />);
+    const first = cellEl(container, 'hhClosed', 0, 0);
+    const last = cellEl(container, 'hhClosed', 0, 3);
+    vi.spyOn(first, 'getBoundingClientRect').mockReturnValue(rect(0, 100));
+    vi.spyOn(last, 'getBoundingClientRect').mockReturnValue(rect(0, 100));
+    document.elementFromPoint = vi.fn(() => last);
+    down(first, 5, 90); // 1 + round(0.1 * 126) = 14
+    move(first, 120, 10); // jumps straight to cell 3: 1 + round(0.9 * 126) = 114
+    up(first, 120, 10);
+    expect([0, 1, 2, 3].map((i) => vel('hhClosed', 0, i))).toEqual([14, 47, 81, 114]);
+  });
+
   it('erases along a row when the drag starts on a note', () => {
     const pid = appStore.getState().ui.patternId;
     appStore.getState().apply((p) => ops.setVelocity(ops.setVelocity(p, pid, 0, 0, 'ride', 0, 90), pid, 0, 0, 'ride', 1, 90));
