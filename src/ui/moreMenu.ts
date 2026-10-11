@@ -26,6 +26,7 @@ export function moreMenuItems(view: View): (MenuItem | 'separator')[] {
       // Play in the song view plays the song (falls back to pattern mode while the song is empty).
       onSelect: () => appStore.getState().setUi({ view: 'song', playMode: 'song' }),
     },
+    { label: 'Notation', checked: view === 'notation', onSelect: setView('notation') },
     'separator',
     { label: 'Swing…', onSelect: openSwingSheet },
     { label: 'Tracks…', onSelect: openTracksSheet },

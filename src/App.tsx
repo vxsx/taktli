@@ -1,4 +1,5 @@
 import styles from './App.module.css';
+import { NotationView } from './notation/NotationView';
 import { useApp } from './state/store';
 import { BarStrip } from './ui/BarStrip';
 import { Grid } from './ui/Grid';
@@ -20,6 +21,7 @@ export function App() {
       <main className={styles.main}>
         {view === 'grid' && <Grid />}
         {view === 'song' && <SongView />}
+        {view === 'notation' && <NotationView />}
       </main>
       {view === 'grid' && <BarStrip />}
       <Toasts />
