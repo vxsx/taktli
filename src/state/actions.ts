@@ -1,7 +1,11 @@
 import { transport } from '../audio/transport';
+import { downloadBytes, safeFilename } from '../io/download';
+import { exportMidi } from '../io/midi';
+import { compressionSupported, encodeShare, shareUrl } from '../io/share';
 import { cloneBar, createProject, newId } from '../model/factory';
 import * as ops from '../model/ops';
 import type { Project } from '../model/types';
+import { promptText } from '../ui/modal';
 import { flushAutosave, safeSave, storage } from './persistence';
 import { appStore, currentBar, currentPattern } from './store';
 
@@ -139,4 +143,31 @@ export function deleteProject(id: string): void {
   const next = storage.loadMostRecent();
   if (next) switchToProject(next);
   else newProject();
+}
+
+// ---- share & export ----
+
+export async function shareProject(): Promise<void> {
+  if (!compressionSupported()) return void s().toast('This browser is too old to create share links', 'error');
+  const p = s().project;
+  const url = shareUrl(await encodeShare(p), location.origin + location.pathname);
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: p.name, url });
+      return;
+    } catch (e) {
+      if ((e as { name?: string }).name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    s().toast('Link copied');
+  } catch {
+    await promptText({ title: 'Share link', initial: url, readOnly: true });
+  }
+}
+
+export function exportMidiFile(): void {
+  const { project, ui } = s();
+  downloadBytes(exportMidi(project, { patternId: ui.patternId }), `${safeFilename(project.name)}.mid`, 'audio/midi');
 }
