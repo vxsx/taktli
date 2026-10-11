@@ -18,7 +18,7 @@ A small web-based step-sequencer drum machine in the spirit of Little Drum Machi
 | Orientation | **Landscape only.** Portrait shows a "rotate your phone" prompt. |
 | Grid | All 16 steps (one bar) visible, cells stretch to use the **full horizontal space**. |
 | Volume editing | Default: **tap toggles, press + vertical slide sets volume**. Plus a **Volume mode** where touch height sets volume and dragging across a row draws a curve. |
-| Sounds | **Two switchable kits** sharing the same tracks: acoustic (CC0/permissive samples) and electronic (synthesized). |
+| Sounds | **Two switchable kits** sharing the same tracks: acoustic (samples from "Big Rusty Drums" by Karoryfer Samples, CC0 1.0) and electronic (synthesized). |
 | Structure | **Patterns + song chain.** Each pattern has 1..N bars, and the song is an ordered list of pattern references. |
 | Time | 4/4, 4 beats per bar. **Each beat** can be 16ths (4 cells), 8th triplets (3) or 16th triplets (6). Per-pattern swing. |
 | Save/share | Autosave on device, **share via link**, **export MIDI**. No PWA/offline, no audio export. |
@@ -143,7 +143,7 @@ interface Project {
     - `dm:last` holds the last opened project id.
     - `dm:clipboard` holds the copied bar.
 - **Projects sheet:** new, open, rename, duplicate, delete.
-  - The first launch creates a **demo project**: pattern A (rock groove), pattern B (groove with triplet fill on beat 4), and song `A A A B`.
+  - The first launch creates a **demo project** at 96 BPM: pattern A (2-bar rock groove, crash on bar 1), pattern B (a groove bar, then a bar with a triplet fill on beat 4), and song `A B`.
 - **Share link:**
   - Format: `…/#p=<payload>`. The payload is compact JSON, compressed with `CompressionStream('deflate-raw')` and base64url-encoded.
   - Opening such a link validates it, imports it as a **new project** (it never overwrites one), opens it, and clears the hash.
