@@ -82,11 +82,10 @@ export async function bootstrap(): Promise<void> {
   });
 
   window.addEventListener('pagehide', flushAutosave);
+  // Playback carries on in a hidden tab (switching tabs while practising); only the save is flushed.
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      flushAutosave();
-      transport.stop();
-    }
+    if (document.hidden) flushAutosave();
+    else transport.keepAwake();
   });
   window.addEventListener('hashchange', () => void importSharedProject(location.hash));
 

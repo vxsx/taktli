@@ -74,6 +74,85 @@ test('renders notation', async ({ page }) => {
   expect(await svg.locator('.vf-stavenote').count()).toBeGreaterThan(10);
 });
 
+/** Drawn note parts that stick out of the bar they belong to (VexFlow draws each stave, then its notes). */
+const strayNotes = (page: Page) =>
+  page.getByTestId('notation').evaluate((root) => {
+    const out: string[] = [];
+    let bar = 0;
+    let [left, right] = [0, 0];
+    for (const g of root.querySelectorAll<SVGGElement>('g.vf-stave, g.vf-stavenote')) {
+      if (g.classList.contains('vf-stave')) {
+        const b = g.getBBox();
+        bar += 1;
+        [left, right] = [b.x, b.x + b.width];
+        continue;
+      }
+      // Only drawn glyphs and lines: VexFlow also adds an invisible hit-area rect that can start at x≈0.
+      for (const ink of g.querySelectorAll<SVGGraphicsElement>('text, path')) {
+        const b = ink.getBBox();
+        if (b.x < left || b.x + b.width > right) {
+          out.push(`bar ${bar}: ${ink.tagName} at ${Math.round(b.x)}..${Math.round(b.x + b.width)}, bar is ${Math.round(left)}..${Math.round(right)}`);
+        }
+      }
+    }
+    return out;
+  });
+
+test('notation keeps every note inside its own bar @desktop', async ({ page }) => {
+  await openMore(page, 'Notation');
+  const notes = page.getByTestId('notation').locator('svg .vf-stavenote');
+  await expect(notes.first()).toBeVisible();
+  expect(await strayNotes(page)).toEqual([]);
+  await page.getByRole('button', { name: 'Pattern' }).click();
+  await page.getByRole('menuitem', { name: /^B · / }).click();
+  await expect(page.getByRole('heading', { name: /Pattern B/ })).toBeVisible();
+  await expect(notes.first()).toBeVisible();
+  expect(await strayNotes(page)).toEqual([]);
+});
+
+test('notation fills a desktop screen @desktop', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'phones keep the 1× staff');
+  await openMore(page, 'Notation');
+  const svg = page.getByTestId('notation').locator('svg');
+  await expect(svg.locator('.vf-stavenote').first()).toBeVisible();
+  expect((await svg.boundingBox())!.width).toBeGreaterThan(0.9 * page.viewportSize()!.width);
+  // A 5-line staff is 40 units tall at 1×.
+  expect((await svg.locator('.vf-stave').first().boundingBox())!.height).toBeGreaterThanOrEqual(80);
+});
+
+test('tapping a bar in notation opens it in the grid @desktop', async ({ page }) => {
+  await openMore(page, 'Notation');
+  const second = page.getByTestId('notation').locator('svg .vf-stave').nth(1);
+  await expect(second).toBeVisible();
+  const box = (await second.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.getByRole('button', { name: 'Bar 2' })).toHaveAttribute('aria-current', 'true');
+});
+
+test('project actions work from the Projects sheet @desktop', async ({ page }) => {
+  await openMore(page, 'Projects…');
+  await page.getByRole('button', { name: 'More for Demo groove' }).click();
+  await page.getByRole('menuitem', { name: 'Duplicate' }).click({ timeout: 3000 });
+  await expect(page.getByRole('button', { name: /^More for / })).toHaveCount(2);
+});
+
+test('project rows centre their name and date @desktop', async ({ page }) => {
+  await openMore(page, 'Projects…');
+  const row = page.getByRole('dialog', { name: 'Projects' }).locator('li').first().getByRole('button').first();
+  // Measure the rendered text, not the (possibly stretched) element boxes around it.
+  const offsets = await row.evaluate((button) => {
+    const middle = (r: DOMRect) => r.top + r.height / 2;
+    const rowMiddle = middle(button.getBoundingClientRect());
+    return [...button.children].map((child) => {
+      const range = document.createRange();
+      range.selectNodeContents(child);
+      return Math.abs(middle(range.getBoundingClientRect()) - rowMiddle);
+    });
+  });
+  expect(offsets).toHaveLength(2);
+  for (const off of offsets) expect(off).toBeLessThanOrEqual(1.5);
+});
+
 test('shares a link that opens as a new project', async ({ page, context }) => {
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
@@ -101,6 +180,19 @@ test('plays and moves the playhead', async ({ page }) => {
   await expect(page.locator('[data-cell][class*="playing"]').first()).toBeVisible({ timeout: 5000 });
   await page.getByRole('button', { name: 'Stop' }).click();
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+});
+
+test('keeps playing when the tab is hidden @desktop', async ({ page }) => {
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(300);
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+  await page.getByRole('button', { name: 'Stop' }).click();
 });
 
 test.describe('portrait phone', () => {

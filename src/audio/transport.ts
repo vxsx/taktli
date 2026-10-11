@@ -4,9 +4,12 @@ import { getAudio, unlockAudio } from './context';
 import { createElectronicKit } from './kits/electronic';
 import { createSampleKit } from './kits/sample';
 import type { Kit } from './kits/types';
+import { PlayheadQueue } from './playheadQueue';
 import { Scheduler, type PlayheadEvent } from './scheduler';
+import { workerClearInterval, workerSetInterval } from './workerTimer';
 
 interface WakeLockHandle {
+  readonly released?: boolean;
   release(): Promise<void>;
 }
 
@@ -14,8 +17,7 @@ class Transport {
   private kits = new Map<KitName, Kit>();
   private acousticFailed = false;
   private scheduler: Scheduler | null = null;
-  private queue: PlayheadEvent[] = [];
-  private current: PlayheadEvent | null = null;
+  private queue = new PlayheadQueue();
   private wakeLock: WakeLockHandle | null = null;
 
   get playing(): boolean {
@@ -73,8 +75,7 @@ class Transport {
     await this.ensureKit().catch(() => undefined);
     if (this.scheduler) return;
     const { ctx } = getAudio();
-    this.queue = [];
-    this.current = null;
+    this.queue.clear();
     this.scheduler = new Scheduler({
       now: () => ctx.currentTime,
       getProject: () => appStore.getState().project,
@@ -83,7 +84,10 @@ class Transport {
         return { mode: ui.playMode, patternId: ui.patternId, barIndex: ui.barIndex, loopBar: ui.loopBar };
       },
       play: (track, time, velocity) => this.kits.get(this.effectiveKit())?.play(track, time, velocity),
-      onPlayhead: (e) => this.queue.push(e),
+      onPlayhead: (e) => this.queue.push(e, ctx.currentTime),
+      // Keeps time in background tabs, where browsers slow down ordinary timers.
+      setInterval: workerSetInterval,
+      clearInterval: workerClearInterval,
     });
     this.scheduler.start();
     appStore.getState().setUi({ playing: true });
@@ -94,8 +98,7 @@ class Transport {
     if (!this.scheduler) return;
     this.scheduler.stop();
     this.scheduler = null;
-    this.queue = [];
-    this.current = null;
+    this.queue.clear();
     appStore.getState().setUi({ playing: false });
     void this.releaseWakeLock();
   }
@@ -108,9 +111,12 @@ class Transport {
   /** The tick currently audible; call once per animation frame. */
   playhead(): PlayheadEvent | null {
     if (!this.scheduler) return null;
-    const now = getAudio().ctx.currentTime;
-    while (this.queue.length > 0 && this.queue[0].time <= now) this.current = this.queue.shift()!;
-    return this.current;
+    return this.queue.at(getAudio().ctx.currentTime);
+  }
+
+  /** Browsers drop the screen wake lock while the tab is hidden; take it again on return if still playing. */
+  keepAwake(): void {
+    if (this.scheduler && (!this.wakeLock || this.wakeLock.released)) void this.acquireWakeLock();
   }
 
   async audition(track: TrackId, velocity: Velocity): Promise<void> {

@@ -17,5 +17,7 @@ export default defineConfig({
       name: 'android-chromium',
       use: { ...devices['Pixel 7 landscape'], launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] } },
     },
+    // Desktop runs only the tests tagged @desktop (the rest rely on touch).
+    { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } }, grep: /@desktop/ },
   ],
 });

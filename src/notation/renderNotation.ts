@@ -1,4 +1,5 @@
 import type { Pattern } from '../model/types';
+import { LINE_HEIGHT, layoutNotation } from './layout';
 import { notationMarks, toNotation, type NotationBeat, type NotationEvent } from './toNotation';
 
 type VF = typeof import('vexflow/bravura');
@@ -7,16 +8,18 @@ type Beam = InstanceType<VF['Beam']>;
 type Tuplet = InstanceType<VF['Tuplet']>;
 type Voice = InstanceType<VF['Voice']>;
 
+/** Where one bar landed, in CSS pixels relative to the notation element. */
 export interface BarLayout {
   left: number;
   right: number;
+  top: number;
+  bottom: number;
   noteStart: number;
   noteEnd: number;
+  cursorTop: number;
+  cursorHeight: number;
 }
 
-export const BAR_WIDTH = 280;
-const FIRST_BAR_EXTRA = 70;
-export const NOTATION_HEIGHT = 150;
 const STAVE_Y = 28;
 
 function makeNote(VF: VF, ev: NotationEvent, voice: 'hands' | 'feet'): StaveNote {
@@ -68,24 +71,26 @@ function buildVoice(VF: VF, beats: NotationBeat[], voice: 'hands' | 'feet') {
   return { voice: v, beams, tuplets };
 }
 
-/** Draws all bars of `pattern` on one percussion staff into `el`; returns per-bar x ranges for the cursor. */
-export function renderNotation(el: HTMLDivElement, pattern: Pattern, VF: VF): BarLayout[] {
+/** Draws all bars of `pattern` as sheet music sized to a `width`×`height` CSS-pixel area; returns where each bar went. */
+export function renderNotation(el: HTMLDivElement, pattern: Pattern, VF: VF, width: number, height: number): BarLayout[] {
   el.innerHTML = '';
-  const width = 8 + FIRST_BAR_EXTRA + BAR_WIDTH * pattern.bars.length;
+  const area = layoutNotation(pattern.bars.length, width, height);
+  const s = area.scale;
   const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
-  renderer.resize(width, NOTATION_HEIGHT);
+  renderer.resize(area.width * s, area.height * s);
   const ctx = renderer.getContext();
+  ctx.scale(s, s);
   if (pattern.swing > 0) {
     ctx.setFont('Arial', 12);
     ctx.fillText(`Swing ${pattern.swing}%`, 8, 16);
   }
 
-  const layout: BarLayout[] = [];
-  let x = 4;
-  pattern.bars.forEach((bar, i) => {
-    const w = BAR_WIDTH + (i === 0 ? FIRST_BAR_EXTRA : 0);
-    const stave = new VF.Stave(x, STAVE_Y, w);
-    if (i === 0) stave.addClef('percussion').addTimeSignature('4/4');
+  return pattern.bars.map((bar, i) => {
+    const box = area.bars[i];
+    const lineTop = box.line * LINE_HEIGHT;
+    const stave = new VF.Stave(box.x, lineTop + STAVE_Y, box.width);
+    if (box.lineStart) stave.addClef('percussion');
+    if (i === 0) stave.addTimeSignature('4/4');
     stave.setContext(ctx).draw();
 
     const n = toNotation(bar);
@@ -101,8 +106,15 @@ export function renderNotation(el: HTMLDivElement, pattern: Pattern, VF: VF): Ba
       for (const b of p.beams) b.setContext(ctx).draw();
       for (const t of p.tuplets) t.setContext(ctx).draw();
     }
-    layout.push({ left: x, right: x + w, noteStart: stave.getNoteStartX(), noteEnd: stave.getNoteEndX() });
-    x += w;
+    return {
+      left: box.x * s,
+      right: (box.x + box.width) * s,
+      top: lineTop * s,
+      bottom: (lineTop + LINE_HEIGHT) * s,
+      noteStart: stave.getNoteStartX() * s,
+      noteEnd: stave.getNoteEndX() * s,
+      cursorTop: (lineTop + 14) * s,
+      cursorHeight: 110 * s,
+    };
   });
-  return layout;
 }

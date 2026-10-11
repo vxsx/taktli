@@ -2,10 +2,14 @@
 .header { display: flex; align-items: center; gap: 12px; }
 .header h2 { font-size: 15px; }
 .hint { color: var(--text-dim); flex: 1; }
-.scroller { overflow-x: auto; overflow-y: hidden; border-radius: 10px; }
-.paper { position: relative; display: inline-block; background: #f4f1ea; border-radius: 10px; padding: 4px 8px; min-width: 100%; }
+.scroller { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; border-radius: 10px; }
+.paper {
+  position: relative; display: inline-block; vertical-align: top; background: #f4f1ea; border-radius: 10px;
+  padding: 4px 8px; min-width: 100%;
+}
+.paper svg { display: block; }
 .cursor {
-  position: absolute; top: 18px; left: 8px; width: 2px; height: 110px; background: var(--accent);
+  position: absolute; top: 4px; left: 8px; width: 2px; background: var(--accent);
   display: none; pointer-events: none;
 }
 .status { color: var(--text-dim); }
