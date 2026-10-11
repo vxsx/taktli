@@ -1,0 +1,14 @@
+.overlay {
+  display: none; position: fixed; inset: 0; z-index: 100; background: var(--bg);
+  flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px;
+}
+@media (orientation: portrait) and (max-width: 600px) {
+  .overlay { display: flex; }
+}
+.phone { font-size: 52px; animation: turn 2.4s ease-in-out infinite; }
+.title { font-size: 18px; font-weight: 600; }
+.hint { color: var(--text-dim); }
+@keyframes turn {
+  0%, 35% { transform: rotate(0deg); }
+  65%, 100% { transform: rotate(-90deg); }
+}

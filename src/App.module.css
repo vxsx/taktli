@@ -1,0 +1,6 @@
+.app {
+  height: 100dvh; display: flex; flex-direction: column; gap: 4px;
+  padding: max(env(safe-area-inset-top), 4px) max(env(safe-area-inset-right), 8px)
+    max(env(safe-area-inset-bottom), 4px) max(env(safe-area-inset-left), 8px);
+}
+.main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
