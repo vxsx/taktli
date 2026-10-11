@@ -61,8 +61,8 @@ export async function bootstrap(): Promise<void> {
     appStore.getState().toast(SAVE_FAILED, 'error');
   }
 
-  if (storage.countCorrupt() > 0) {
-    appStore.getState().toast('Some saved projects were damaged and are hidden', 'error');
+  if (storage.forgetCorrupt() > 0) {
+    appStore.getState().toast('Some saved projects were damaged and have been removed from the list', 'error');
   }
 
   let project = storage.loadMostRecent();

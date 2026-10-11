@@ -137,6 +137,24 @@ export class ProjectStorage {
     return this.readIndex().filter((m) => this.loadProject(m.id) === null).length;
   }
 
+  /**
+   * Removes index entries whose project can't be loaded and returns how many were removed.
+   * The raw `dm:project:<id>` data is left in place for manual recovery.
+   */
+  forgetCorrupt(): number {
+    const index = this.readIndex();
+    const healthy = index.filter((m) => this.loadProject(m.id) !== null);
+    const removed = index.length - healthy.length;
+    if (removed > 0) {
+      try {
+        this.write(KEYS.index, healthy);
+      } catch {
+        // can't persist the cleanup; the warning may repeat next launch
+      }
+    }
+    return removed;
+  }
+
   /** The last-opened project if loadable, else the newest loadable one, else null. */
   loadMostRecent(): Project | null {
     const last = this.getLastProjectId();

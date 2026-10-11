@@ -45,6 +45,20 @@ describe('ProjectStorage', () => {
     expect(s.countCorrupt()).toBe(2);
   });
 
+  it('drops corrupt entries from the index once, keeping their raw data', () => {
+    const kv = new MemoryStore();
+    const s = new ProjectStorage(kv);
+    const good = createProject('Good');
+    s.saveProject(good);
+    kv.setItem(KEYS.index, JSON.stringify([{ id: good.id, name: 'Good', updatedAt: 1 }, { id: 'broken', name: 'Broken', updatedAt: 2 }]));
+    kv.setItem(KEYS.project('broken'), '{oops');
+    expect(s.forgetCorrupt()).toBe(1);
+    expect(s.forgetCorrupt()).toBe(0);
+    expect(s.countCorrupt()).toBe(0);
+    expect(s.listProjects().map((m) => m.id)).toEqual([good.id]);
+    expect(kv.getItem(KEYS.project('broken'))).toBe('{oops');
+  });
+
   it('deletes projects and forgets the last-opened id', () => {
     const s = new ProjectStorage(new MemoryStore());
     const p = createProject();
