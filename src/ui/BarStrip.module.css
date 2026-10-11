@@ -1,0 +1,8 @@
+.strip { display: flex; align-items: center; gap: 6px; height: 34px; flex-shrink: 0; }
+.chips { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { min-width: 34px; flex-shrink: 0; touch-action: none; font-variant-numeric: tabular-nums; }
+.current { background: #444456; outline: 2px solid var(--accent); outline-offset: -2px; }
+.playingChip { box-shadow: inset 0 -3px 0 var(--playhead); }
+.dragging { opacity: 0.55; transform: scale(1.08); }
+.actions { display: flex; gap: 4px; flex-shrink: 0; }

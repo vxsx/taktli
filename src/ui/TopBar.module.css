@@ -1,0 +1,12 @@
+.bar { display: flex; align-items: center; gap: 6px; height: 38px; flex-shrink: 0; }
+.play { width: 38px; min-width: 38px; padding: 0; border-radius: 50%; background: var(--accent); color: #fff; font-size: 14px; }
+.play[aria-pressed='true'] { background: #fff; color: var(--bg); }
+.spacer { flex: 1; }
+.segmented { display: flex; background: var(--panel-2); border-radius: 10px; padding: 2px; gap: 2px; }
+.segmented button { min-height: 26px; background: transparent; padding: 0 9px; }
+.segmented button[aria-checked='true'] { background: var(--accent); color: #fff; }
+.bpm { display: flex; flex-direction: column; gap: 10px; width: 220px; padding: 4px; }
+.bpmRow { display: flex; align-items: center; justify-content: space-between; }
+.bpmRow button { width: 44px; min-height: 40px; font-size: 18px; }
+.bpmValue { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tap { min-height: 44px; }
