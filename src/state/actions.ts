@@ -7,15 +7,20 @@ import * as ops from '../model/ops';
 import type { Project } from '../model/types';
 import { promptText } from '../ui/modal';
 import { flushAutosave, safeSave, storage } from './persistence';
-import { appStore, currentBar, currentPattern } from './store';
+import { appStore, currentBar, currentPattern, type UiState } from './store';
 
 const s = () => appStore.getState();
+
+/** Moves the editor somewhere. While playing, this turns Follow off so playback can't snap the view back. */
+function navigate(patch: Partial<UiState>): void {
+  const { ui } = s();
+  s().setUi({ ...patch, follow: ui.playing ? false : ui.follow });
+}
 
 // ---- bars ----
 
 export function selectBar(index: number): void {
-  const { ui } = s();
-  s().setUi({ barIndex: index, follow: ui.playing ? false : ui.follow });
+  navigate({ barIndex: index });
 }
 
 export function copyBar(): void {
@@ -35,19 +40,19 @@ export function pasteBarAsNew(): void {
   if (!bar) return s().toast('Nothing to paste — copy a bar first');
   const { ui } = s();
   s().apply((p) => ops.insertBarAfter(p, ui.patternId, ui.barIndex, cloneBar(bar)));
-  s().setUi({ barIndex: ui.barIndex + 1 });
+  navigate({ barIndex: ui.barIndex + 1 });
 }
 
 export function addBarAtEnd(): void {
   const { ui } = s();
   s().apply((p) => ops.addBar(p, ui.patternId));
-  s().setUi({ barIndex: currentPattern(s()).bars.length - 1 });
+  navigate({ barIndex: currentPattern(s()).bars.length - 1 });
 }
 
 export function duplicateCurrentBar(): void {
   const { ui } = s();
   s().apply((p) => ops.duplicateBar(p, ui.patternId, ui.barIndex));
-  s().setUi({ barIndex: ui.barIndex + 1 });
+  navigate({ barIndex: ui.barIndex + 1 });
 }
 
 export function clearCurrentBar(): void {
@@ -63,27 +68,26 @@ export function deleteCurrentBar(): void {
 export function moveBar(from: number, to: number): void {
   const { ui } = s();
   s().apply((p) => ops.moveBar(p, ui.patternId, from, to));
-  s().setUi({ barIndex: to });
+  navigate({ barIndex: to });
 }
 
 // ---- patterns ----
 
 export function selectPattern(id: string): void {
-  const { ui } = s();
-  s().setUi({ patternId: id, barIndex: 0, follow: ui.playing ? false : ui.follow });
+  navigate({ patternId: id, barIndex: 0 });
 }
 
 export function addPattern(): void {
   const id = newId();
   s().apply((p) => ops.addPattern(p, id));
-  s().setUi({ patternId: id, barIndex: 0 });
+  navigate({ patternId: id, barIndex: 0 });
 }
 
 export function duplicatePattern(): void {
   const id = newId();
   const { ui } = s();
   s().apply((p) => ops.duplicatePattern(p, ui.patternId, id));
-  s().setUi({ patternId: id, barIndex: 0 });
+  navigate({ patternId: id, barIndex: 0 });
 }
 
 export function renamePattern(id: string, name: string): void {

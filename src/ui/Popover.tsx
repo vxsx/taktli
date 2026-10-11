@@ -2,6 +2,23 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom';
 import styles from './Popover.module.css';
 
+let openOverlays = 0;
+
+/** True while any popover, menu or modal is open (Follow pauses so edits land where the user is looking). */
+export function isOverlayOpen(): boolean {
+  return openOverlays > 0;
+}
+
+export function useOverlayRegistration(active: boolean): void {
+  useEffect(() => {
+    if (!active) return;
+    openOverlays += 1;
+    return () => {
+      openOverlays -= 1;
+    };
+  }, [active]);
+}
+
 export interface PopoverProps {
   anchor: DOMRect;
   onClose(): void;
@@ -12,6 +29,7 @@ export interface PopoverProps {
 export function Popover({ anchor, onClose, children }: PopoverProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useOverlayRegistration(true);
 
   useLayoutEffect(() => {
     const el = panel.current;

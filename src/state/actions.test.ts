@@ -73,3 +73,34 @@ describe('pattern actions', () => {
     expect(s().project.song.every((x) => x.patternId !== b.id)).toBe(true);
   });
 });
+
+describe('navigation during playback', () => {
+  const navigations: [string, () => void][] = [
+    ['addPattern', () => actions.addPattern()],
+    ['duplicatePattern', () => actions.duplicatePattern()],
+    ['addBarAtEnd', () => actions.addBarAtEnd()],
+    ['duplicateCurrentBar', () => actions.duplicateCurrentBar()],
+    ['moveBar', () => actions.moveBar(0, 1)],
+    [
+      'pasteBarAsNew',
+      () => {
+        actions.copyBar();
+        actions.pasteBarAsNew();
+      },
+    ],
+  ];
+
+  for (const [name, run] of navigations) {
+    it(`${name} turns follow off while playing so the new selection sticks`, () => {
+      s().setUi({ playing: true, follow: true });
+      run();
+      expect(s().ui.follow).toBe(false);
+    });
+  }
+
+  it('keeps follow as it was while stopped', () => {
+    s().setUi({ playing: false, follow: true });
+    actions.addPattern();
+    expect(s().ui.follow).toBe(true);
+  });
+});

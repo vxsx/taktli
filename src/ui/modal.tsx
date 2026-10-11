@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { createStore, useStore } from 'zustand';
 import styles from './Modal.module.css';
+import { useOverlayRegistration } from './Popover';
 
 const modalStore = createStore<{ node: ReactNode | null }>()(() => ({ node: null }));
 
@@ -15,6 +16,7 @@ export function closeModal(): void {
 
 export function ModalHost() {
   const node = useStore(modalStore, (s) => s.node);
+  useOverlayRegistration(node !== null);
   if (!node) return null;
   return createPortal(<div className={styles.backdrop}>{node}</div>, document.body);
 }
