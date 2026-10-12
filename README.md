@@ -1,6 +1,6 @@
 # Taktli
 
-A little drum machine for your phone. Play it at https://vxsx.github.io/taktli/
+A little drum machine for your phone. Play it at https://vadim.sikora.name/taktli/
 
 Phone-first and landscape-only, it has:
 - Patterns of 16-step bars with per-beat triplets, arranged into a song on a timeline.
