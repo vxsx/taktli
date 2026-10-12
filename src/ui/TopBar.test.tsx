@@ -32,18 +32,35 @@ describe('TopBar', () => {
     expect(screen.queryByRole('button', { name: 'Kit' })).toBeNull();
   });
 
-  it('switches edit and play modes', () => {
+  it('switches edit mode', () => {
     render(<TopBar />);
     fireEvent.click(screen.getByRole('radio', { name: 'Volume' }));
     expect(appStore.getState().ui.editMode).toBe('volume');
-    fireEvent.click(screen.getByRole('radio', { name: 'Song' }));
-    expect(appStore.getState().ui.playMode).toBe('song');
   });
 
-  it('disables song play mode when the song is empty', () => {
+  it('opens the song arrange view from Song, and goes back to the grid from Pattern', () => {
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Song' }));
+    expect(appStore.getState().ui).toMatchObject({ view: 'song', playMode: 'song' });
+    fireEvent.click(screen.getByRole('radio', { name: 'Pattern' }));
+    expect(appStore.getState().ui).toMatchObject({ view: 'grid', playMode: 'pattern' });
+  });
+
+  it('offers Song before the song has any steps, so it can be built there', () => {
     appStore.getState().loadProject(createProject());
     render(<TopBar />);
-    expect(screen.getByRole('radio', { name: 'Song' })).toHaveProperty('disabled', true);
+    const song = screen.getByRole('radio', { name: 'Song' });
+    expect(song).toHaveProperty('disabled', false);
+    fireEvent.click(song);
+    expect(appStore.getState().ui.view).toBe('song');
+    expect(song.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('stays in notation when switching it to pattern play', () => {
+    appStore.getState().setUi({ view: 'notation', playMode: 'song' });
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Pattern' }));
+    expect(appStore.getState().ui).toMatchObject({ view: 'notation', playMode: 'pattern' });
   });
 
   it('changes tempo from the popover', () => {

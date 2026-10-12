@@ -58,13 +58,46 @@ test('switches a beat to triplets', async ({ page }) => {
   await expect(page.locator('[data-track="snare"][data-beat="3"]')).toHaveCount(3);
 });
 
-test('builds a song', async ({ page }) => {
+test('arranges a song on the timeline @desktop', async ({ page }) => {
+  await page.getByRole('radio', { name: 'Song' }).click();
+  const blocks = page.getByRole('button', { name: /^Block \d+:/ });
+  await expect(blocks).toHaveCount(2);
+  await page.getByRole('button', { name: 'Add pattern A' }).click();
+  await expect(blocks.nth(2)).toHaveAttribute('aria-label', 'Block 3: pattern A, bars 5–6');
+
+  // Dragging a block's right edge by one pattern length repeats it.
+  const a = (await blocks.first().boundingBox())!;
+  const [edgeX, midY] = [a.x + a.width - 6, a.y + a.height / 2];
+  await page.mouse.move(edgeX, midY);
+  await page.mouse.down();
+  await page.mouse.move(edgeX + a.width / 2, midY, { steps: 4 });
+  await page.mouse.move(edgeX + a.width + 3, midY, { steps: 4 });
+  await page.mouse.up();
+  await expect(blocks.first()).toHaveAttribute('aria-label', 'Block 1: pattern A ×2, bars 1–4');
+
+  // Holding a block, then dragging it onto another, moves it there (the A blocks then merge).
+  const b = (await blocks.nth(1).boundingBox())!;
+  const first = (await blocks.first().boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.move(first.x + 20, first.y + first.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(blocks).toHaveCount(2);
+  await expect(blocks.first()).toHaveAttribute('aria-label', 'Block 1: pattern B, bars 1–2');
+  await expect(blocks.nth(1)).toHaveAttribute('aria-label', 'Block 2: pattern A ×3, bars 3–8');
+});
+
+test('plays the song from a bar on the ruler @desktop', async ({ page }) => {
   await openMore(page, 'Song');
-  const steps = page.getByRole('button', { name: /^Step \d+: pattern/ });
-  await expect(steps).toHaveCount(2);
-  await page.getByRole('button', { name: 'Add step' }).click();
-  await page.getByRole('menuitem', { name: 'Pattern B' }).click();
-  await expect(steps).toHaveCount(3);
+  await page.getByRole('button', { name: 'Play from bar 3' }).click();
+  await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+  const playhead = page.locator('[class*="playhead"]');
+  await expect(playhead).toBeVisible({ timeout: 5000 });
+  const block = (await page.getByRole('button', { name: /^Block 2:/ }).boundingBox())!;
+  const x = (await playhead.boundingBox())!.x;
+  expect(x).toBeGreaterThanOrEqual(block.x - 2);
+  await page.getByRole('button', { name: 'Stop' }).click();
 });
 
 test('renders notation', async ({ page }) => {

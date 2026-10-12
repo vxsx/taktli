@@ -16,7 +16,6 @@ export function TopBar() {
   const bpm = useApp((s) => s.project.bpm);
   const patternName = useApp((s) => currentPattern(s).name);
   const playMode = useApp((s) => s.ui.playMode);
-  const songEmpty = useApp((s) => s.project.song.length === 0);
   const editMode = useApp((s) => s.ui.editMode);
   const view = useApp((s) => s.ui.view);
   const canUndo = useApp((s) => s.past.length > 0);
@@ -35,12 +34,14 @@ export function TopBar() {
       <button aria-label="Pattern" onClick={opener('pattern')}>{patternName} ▾</button>
       <Segmented
         label="Play mode"
-        value={playMode}
+        // An empty song plays the pattern, but the song view (where it gets built) still shows Song.
+        value={view === 'song' ? 'song' : playMode}
         options={[
           { value: 'pattern', label: 'Pattern' },
-          { value: 'song', label: 'Song', disabled: songEmpty, title: songEmpty ? 'Add steps in the Song view first' : undefined },
+          { value: 'song', label: 'Song' },
         ]}
-        onChange={(v) => st().setUi({ playMode: v })}
+        // Song opens the arrange view; Pattern leaves it for the grid.
+        onChange={(v) => st().setUi(v === 'song' ? { view: 'song', playMode: 'song' } : { view: view === 'song' ? 'grid' : view, playMode: 'pattern' })}
       />
       {view === 'grid' && (
         <Segmented
