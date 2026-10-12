@@ -25,20 +25,11 @@ describe('TopBar', () => {
     expect(toggle).toHaveBeenCalledOnce();
   });
 
-  it('shows tempo, kit and pattern', () => {
+  it('shows tempo and pattern, with the kit left to the ⋯ menu', () => {
     render(<TopBar />);
     expect(screen.getByRole('button', { name: 'Tempo' }).textContent).toContain('96');
-    expect(screen.getByRole('button', { name: 'Kit' }).textContent).toBe('Acoustic');
     expect(screen.getByRole('button', { name: 'Pattern' }).textContent).toContain('A');
-  });
-
-  it('switches kit as an undoable edit', () => {
-    render(<TopBar />);
-    fireEvent.click(screen.getByRole('button', { name: 'Kit' }));
-    expect(appStore.getState().project.kit).toBe('electronic');
-    expect(screen.getByRole('button', { name: 'Undo' })).not.toHaveProperty('disabled', true);
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(appStore.getState().project.kit).toBe('acoustic');
+    expect(screen.queryByRole('button', { name: 'Kit' })).toBeNull();
   });
 
   it('switches edit and play modes', () => {

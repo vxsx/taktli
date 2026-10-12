@@ -26,6 +26,16 @@ describe('more menu', () => {
     expect(appStore.getState().ui).toMatchObject({ view: 'song', playMode: 'pattern' });
   });
 
+  it('shows the current kit and switches it as an undoable edit', () => {
+    expect(item('Acoustic kit').checked).toBe(true);
+    expect(item('Electronic kit').checked).toBe(false);
+    item('Electronic kit').onSelect();
+    expect(appStore.getState().project.kit).toBe('electronic');
+    expect(item('Electronic kit').checked).toBe(true);
+    appStore.getState().undo();
+    expect(appStore.getState().project.kit).toBe('acoustic');
+  });
+
   it('leaves play mode alone when returning to the grid', () => {
     item('Song').onSelect();
     item('Grid').onSelect();

@@ -1,6 +1,5 @@
 import { useState, type MouseEvent } from 'react';
 import { transport } from '../audio/transport';
-import { setKit } from '../model/ops';
 import { appStore, currentPattern, useApp } from '../state/store';
 import { BpmPopover } from './BpmPopover';
 import { Menu } from './Menu';
@@ -15,7 +14,6 @@ type Open = { kind: 'bpm' | 'pattern' | 'more'; rect: DOMRect } | null;
 export function TopBar() {
   const playing = useApp((s) => s.ui.playing);
   const bpm = useApp((s) => s.project.bpm);
-  const kit = useApp((s) => s.project.kit);
   const patternName = useApp((s) => currentPattern(s).name);
   const playMode = useApp((s) => s.ui.playMode);
   const songEmpty = useApp((s) => s.project.song.length === 0);
@@ -34,9 +32,6 @@ export function TopBar() {
         {playing ? '■' : '▶'}
       </button>
       <button aria-label="Tempo" onClick={opener('bpm')}>♩ {bpm}</button>
-      <button aria-label="Kit" onClick={() => st().apply((p) => setKit(p, kit === 'acoustic' ? 'electronic' : 'acoustic'))}>
-        {kit === 'acoustic' ? 'Acoustic' : 'Electronic'}
-      </button>
       <button aria-label="Pattern" onClick={opener('pattern')}>{patternName} ▾</button>
       <Segmented
         label="Play mode"

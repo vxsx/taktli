@@ -1,3 +1,5 @@
+import type { KitName } from '../model/types';
+import { setKit } from '../model/ops';
 import * as actions from '../state/actions';
 import { appStore, type View } from '../state/store';
 import type { MenuItem } from './Menu';
@@ -8,6 +10,8 @@ import { openTracksSheet } from './TracksSheet';
 
 export function moreMenuItems(view: View): (MenuItem | 'separator')[] {
   const setView = (v: View) => () => appStore.getState().setUi({ view: v });
+  const kit = appStore.getState().project.kit;
+  const useKit = (k: KitName) => () => appStore.getState().apply((p) => setKit(p, k));
   return [
     { label: 'Projects…', onSelect: openProjectsSheet },
     {
@@ -30,6 +34,9 @@ export function moreMenuItems(view: View): (MenuItem | 'separator')[] {
     'separator',
     { label: 'Swing…', onSelect: openSwingSheet },
     { label: 'Tracks…', onSelect: openTracksSheet },
+    'separator',
+    { label: 'Acoustic kit', checked: kit === 'acoustic', onSelect: useKit('acoustic') },
+    { label: 'Electronic kit', checked: kit === 'electronic', onSelect: useKit('electronic') },
     'separator',
     { label: 'Share link', onSelect: () => void actions.shareProject() },
     { label: 'Export MIDI', onSelect: actions.exportMidiFile },
