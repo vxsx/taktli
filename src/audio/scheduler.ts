@@ -40,9 +40,11 @@ export class Scheduler {
     return this.handle !== null;
   }
 
-  start(): void {
+  /** `fromBar` is a position in the timeline (in song mode: the song's bar ruler, 0-based). */
+  start(fromBar?: number): void {
     if (this.running) return;
-    this.ref = startRef(this.deps.getProject(), this.deps.getOptions());
+    const [p, o] = [this.deps.getProject(), this.deps.getOptions()];
+    this.ref = (fromBar !== undefined ? buildTimeline(p, o)[fromBar] : undefined) ?? startRef(p, o);
     this.tick = 0;
     this.nextTime = this.deps.now() + START_DELAY;
     const setI = this.deps.setInterval ?? ((fn: () => void, ms: number) => globalThis.setInterval(fn, ms));

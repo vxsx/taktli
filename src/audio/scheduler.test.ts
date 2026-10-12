@@ -94,6 +94,21 @@ describe('Scheduler', () => {
     expect(h.played.map(([t, time]) => [t, time])).toEqual([['snare', 0.06], ['kick', 2.06], ['snare', 4.06]]);
   });
 
+  it('starts from a chosen bar of the song', () => {
+    let p = ops.setBpm(createProject(), 120);
+    const a = p.patterns[0].id;
+    p = ops.addPattern(p, 'b');
+    p = ops.setVelocity(p, a, 0, 0, 'kick', 0, 100);
+    p = ops.setVelocity(p, 'b', 0, 0, 'snare', 0, 100);
+    p = ops.appendSongStep(p, 'b');
+    p = ops.appendSongStep(p, a);
+    const h = harness(p, { mode: 'song' });
+    h.s.start(1);
+    h.runTo(2.2);
+    expect(h.played.map(([t, time]) => [t, time])).toEqual([['kick', 0.06], ['snare', 2.06]]);
+    expect(h.heads[0].ref).toMatchObject({ patternId: a, stepIndex: 1 });
+  });
+
   it('skips muted tracks', () => {
     const h = harness(ops.setTrackMuted(beatProject(), 'snare', true));
     h.s.start();

@@ -64,7 +64,8 @@ class Transport {
     void this.ensureKit(name).catch(() => undefined);
   }
 
-  async play(): Promise<void> {
+  /** `fromBar` is a timeline position (the song's bar ruler in song mode); omitted, play starts as usual. */
+  async play(fromBar?: number): Promise<void> {
     if (this.scheduler) return;
     try {
       await unlockAudio();
@@ -89,7 +90,7 @@ class Transport {
       setInterval: workerSetInterval,
       clearInterval: workerClearInterval,
     });
-    this.scheduler.start();
+    this.scheduler.start(fromBar);
     appStore.getState().setUi({ playing: true });
     void this.acquireWakeLock();
   }
@@ -101,6 +102,12 @@ class Transport {
     this.queue.clear();
     appStore.getState().setUi({ playing: false });
     void this.releaseWakeLock();
+  }
+
+  /** Plays from `bar`, restarting if something is already playing. */
+  playFrom(bar: number): void {
+    this.stop();
+    void this.play(bar);
   }
 
   toggle(): void {
