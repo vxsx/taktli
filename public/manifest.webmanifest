@@ -1,6 +1,6 @@
 {
-  "name": "Drum Machine",
-  "short_name": "Drums",
+  "name": "Taktli",
+  "short_name": "Taktli",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
