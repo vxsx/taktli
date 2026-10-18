@@ -65,10 +65,11 @@ export class Scheduler {
     const now = this.deps.now();
     if (this.nextTime < now - STALL_LIMIT) this.nextTime = now + 0.02;
     const horizon = now + (this.deps.lookahead ?? 0.12);
+    const solo = this.deps.getOptions().solo;
     while (this.ref && this.nextTime < horizon) {
       const p = this.deps.getProject();
       const secondsPerTick = 60 / p.bpm / TICKS_PER_BEAT;
-      for (const n of notesAtTick(p, this.ref, this.tick)) {
+      for (const n of notesAtTick(p, this.ref, this.tick, solo)) {
         this.deps.play(n.track, this.nextTime + n.offset * secondsPerTick, n.velocity);
       }
       this.deps.onPlayhead({ time: this.nextTime, ref: this.ref, tick: this.tick });

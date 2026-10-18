@@ -1,7 +1,7 @@
 import { createStore, useStore } from 'zustand';
 import { createProject } from '../model/factory';
 import type { PlayMode } from '../model/timeline';
-import type { Bar, Pattern, Project } from '../model/types';
+import type { Bar, Pattern, Project, TrackId } from '../model/types';
 
 export type View = 'grid' | 'song' | 'notation';
 export type EditMode = 'notes' | 'volume';
@@ -15,6 +15,8 @@ export interface UiState {
   loopBar: boolean;
   follow: boolean;
   playing: boolean;
+  /** Soloed tracks, for listening only: not saved and not undoable. */
+  solo: readonly TrackId[];
 }
 
 export interface Toast {
@@ -57,6 +59,7 @@ export function initialUi(p: Project): UiState {
     loopBar: false,
     follow: true,
     playing: false,
+    solo: [],
   };
 }
 

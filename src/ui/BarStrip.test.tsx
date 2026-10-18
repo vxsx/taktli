@@ -9,6 +9,7 @@ vi.mock('../audio/transport', () => ({
 import { createDemoProject } from '../model/factory';
 import { setTrackHidden, setVelocity } from '../model/ops';
 import { TRACK_IDS } from '../model/tracks';
+import { toggleSolo } from '../state/actions';
 import { appStore, currentBar, currentPattern } from '../state/store';
 import { BarStrip } from './BarStrip';
 import { LONG_PRESS_MS } from './gestures';
@@ -53,6 +54,16 @@ describe('BarStrip', () => {
     const before = kicks();
     act(() => appStore.getState().apply((p) => setVelocity(p, p.patterns[0].id, 0, 3, 'kick', 3, 100)));
     expect(kicks()).toBe(before + 1);
+  });
+
+  it('dims the notes of tracks that will not play in the miniatures', () => {
+    render(<BarStrip />);
+    const chip = screen.getByRole('button', { name: 'Bar 1' });
+    const opacity = (t: string) => Number(chip.querySelector(`[data-note="${t}"]`)!.getAttribute('opacity'));
+    const snareBefore = opacity('snare');
+    act(() => toggleSolo('kick'));
+    expect(opacity('snare')).toBeLessThan(snareBefore);
+    expect(opacity('kick')).toBeGreaterThan(opacity('snare'));
   });
 
   it('adds a bar and selects it', () => {

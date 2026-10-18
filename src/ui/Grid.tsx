@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import type { PlayheadEvent } from '../audio/scheduler';
+import { isAudible } from '../model/timeline';
 import { cellContainingTick, TICKS_PER_BEAT } from '../model/timing';
 import { TRACKS } from '../model/tracks';
 import { currentBar, useApp, type AppState } from '../state/store';
@@ -14,6 +15,7 @@ import { VolumeBubble, type BubbleHandle } from './VolumeBubble';
 export function Grid() {
   const bar = useApp(currentBar);
   const tracks = useApp((s) => s.project.tracks);
+  const solo = useApp((s) => s.ui.solo);
   const editMode = useApp((s) => s.ui.editMode);
   const bubble = useRef<BubbleHandle>(null);
   const rows = useRef<HTMLDivElement>(null);
@@ -33,7 +35,7 @@ export function Grid() {
       <BeatHeader />
       <div ref={rows} className={styles.rows} data-testid="grid-rows" {...handlers}>
         {visible.map((t) => (
-          <div key={t.id} className={`${styles.row} ${tracks[t.id].muted ? styles.mutedRow : ''}`}>
+          <div key={t.id} className={styles.row} data-silent={!isAudible(tracks, solo, t.id) || undefined}>
             <TrackLabel track={t.id} />
             {bar.beats.map((beat, i) => (
               <BeatGroup key={i} track={t.id} beatIndex={i} beat={beat} color={t.color} showValues={editMode === 'volume'} />

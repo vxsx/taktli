@@ -116,6 +116,16 @@ describe('Scheduler', () => {
     expect(h.played.map(([t]) => t)).toEqual(['kick']);
   });
 
+  it('plays only soloed tracks and follows solo changes while playing', () => {
+    const h = harness(beatProject(), { solo: ['snare'] });
+    h.s.start();
+    h.runTo(1.0);
+    expect(h.played.map(([t]) => t)).toEqual(['snare']);
+    h.state.options = { ...h.state.options, solo: [] };
+    h.runTo(2.6);
+    expect(h.played.map(([t]) => t)).toEqual(['snare', 'kick', 'snare']);
+  });
+
   it('picks up live edits', () => {
     const h = harness(beatProject());
     h.s.start();

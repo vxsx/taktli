@@ -82,7 +82,7 @@ class Transport {
       getProject: () => appStore.getState().project,
       getOptions: () => {
         const { ui } = appStore.getState();
-        return { mode: ui.playMode, patternId: ui.patternId, barIndex: ui.barIndex, loopBar: ui.loopBar };
+        return { mode: ui.playMode, patternId: ui.patternId, barIndex: ui.barIndex, loopBar: ui.loopBar, solo: ui.solo };
       },
       play: (track, time, velocity) => this.kits.get(this.effectiveKit())?.play(track, time, velocity),
       onPlayhead: (e) => this.queue.push(e, ctx.currentTime),

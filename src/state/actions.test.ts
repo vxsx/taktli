@@ -128,3 +128,22 @@ describe('navigation during playback', () => {
     expect(s().ui.follow).toBe(true);
   });
 });
+
+describe('solo', () => {
+  it('adds tracks to the solo set one at a time and removes them again, outside undo history', () => {
+    actions.toggleSolo('kick');
+    actions.toggleSolo('snare');
+    expect(s().ui.solo).toEqual(['kick', 'snare']);
+    actions.toggleSolo('kick');
+    expect(s().ui.solo).toEqual(['snare']);
+    expect(s().past).toHaveLength(0);
+    actions.clearSolo();
+    expect(s().ui.solo).toEqual([]);
+  });
+
+  it('starts empty when a project opens', () => {
+    actions.toggleSolo('kick');
+    s().loadProject(createDemoProject());
+    expect(s().ui.solo).toEqual([]);
+  });
+});

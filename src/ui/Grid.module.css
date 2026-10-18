@@ -12,12 +12,13 @@
 }
 .rows::-webkit-scrollbar { display: none; }
 .row { display: flex; gap: 4px; flex: 1 0 24px; min-height: 24px; }
-.mutedRow { opacity: 0.35; }
+.row[data-silent] { opacity: 0.35; }
 .label {
   width: var(--label-w); flex-shrink: 0; min-height: 0; padding: 0 6px; text-align: left;
   font-size: 11px; font-weight: 600; color: var(--text-dim); background: var(--panel);
   border-left: 3px solid; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; touch-action: pan-y;
 }
+.label[data-solo] { color: #1a1a1f; background: #f5c542; }
 .beat { flex: 1; min-width: 0; display: flex; gap: 2px; }
 .cell {
   flex: 1; min-width: 0; position: relative; overflow: hidden; border-radius: 4px;

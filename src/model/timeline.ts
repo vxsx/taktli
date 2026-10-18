@@ -1,6 +1,6 @@
 import { cellAtTick, swingOffset, TICKS_PER_BAR, TICKS_PER_BEAT } from './timing';
 import { TRACK_IDS } from './tracks';
-import type { Bar, Project, TrackId, Velocity } from './types';
+import type { Bar, Project, TrackId, TrackSettings, Velocity } from './types';
 
 export type PlayMode = 'pattern' | 'song';
 
@@ -16,6 +16,8 @@ export interface TimelineOptions {
   patternId: string;
   barIndex: number;
   loopBar: boolean;
+  /** Soloed tracks; when any are soloed, only they play. */
+  solo?: readonly TrackId[];
 }
 
 export interface ScheduledNote {
@@ -71,7 +73,12 @@ export function getBar(p: Project, ref: BarRef): Bar | undefined {
   return p.patterns.find((x) => x.id === ref.patternId)?.bars[ref.barIndex];
 }
 
-export function notesAtTick(p: Project, ref: BarRef, tick: number): ScheduledNote[] {
+/** Mute always silences a track; while any track is soloed, only soloed tracks sound. */
+export function isAudible(tracks: Record<TrackId, TrackSettings>, solo: readonly TrackId[], track: TrackId): boolean {
+  return !tracks[track].muted && (solo.length === 0 || solo.includes(track));
+}
+
+export function notesAtTick(p: Project, ref: BarRef, tick: number, solo: readonly TrackId[] = []): ScheduledNote[] {
   const pat = p.patterns.find((x) => x.id === ref.patternId);
   const bar = pat?.bars[ref.barIndex];
   if (!pat || !bar) return [];
@@ -82,7 +89,7 @@ export function notesAtTick(p: Project, ref: BarRef, tick: number): ScheduledNot
   const offset = swingOffset(beat.div, cell, pat.swing);
   const out: ScheduledNote[] = [];
   for (const track of TRACK_IDS) {
-    if (p.tracks[track].muted) continue;
+    if (!isAudible(p.tracks, solo, track)) continue;
     const velocity = beat.cells[track][cell];
     if (velocity > 0) out.push({ track, tick, offset, velocity });
   }

@@ -4,7 +4,7 @@ import { exportMidi } from '../io/midi';
 import { compressionSupported, encodeShare, shareUrl } from '../io/share';
 import { cloneBar, createProject, newId } from '../model/factory';
 import * as ops from '../model/ops';
-import type { Project } from '../model/types';
+import type { Project, TrackId } from '../model/types';
 import { promptText } from '../ui/modal';
 import { flushAutosave, safeSave, storage } from './persistence';
 import { appStore, currentBar, currentPattern, type UiState } from './store';
@@ -82,6 +82,18 @@ export function moveBar(from: number, to: number): void {
   const { ui } = s();
   s().apply((p) => ops.moveBar(p, ui.patternId, from, to));
   navigate({ barIndex: to });
+}
+
+// ---- tracks ----
+
+/** Adds `track` to the soloed set, or takes it out if it's already there. */
+export function toggleSolo(track: TrackId): void {
+  const { solo } = s().ui;
+  s().setUi({ solo: solo.includes(track) ? solo.filter((t) => t !== track) : [...solo, track] });
+}
+
+export function clearSolo(): void {
+  s().setUi({ solo: [] });
 }
 
 // ---- patterns ----

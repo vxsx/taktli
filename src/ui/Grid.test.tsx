@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../audio/transport', () => ({
@@ -9,6 +9,7 @@ vi.mock('../audio/transport', () => ({
 import { createProject } from '../model/factory';
 import * as ops from '../model/ops';
 import type { TrackId } from '../model/types';
+import * as actions from '../state/actions';
 import { appStore, currentBar } from '../state/store';
 import { Grid } from './Grid';
 
@@ -156,6 +157,37 @@ describe('Grid', () => {
     const { container } = render(<Grid />);
     expect(container.querySelector('[data-track="tom2"]')).toBeNull();
     expect(container.querySelectorAll('[data-cell]')).toHaveLength(8 * 16);
+  });
+
+  it('solos tracks from the row menu, adding each to the set', () => {
+    render(<Grid />);
+    const solo = (label: string) => {
+      fireEvent.contextMenu(screen.getByRole('button', { name: label }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Solo' }));
+    };
+    solo('Kick');
+    solo('Snare');
+    expect(appStore.getState().ui.solo).toEqual(['kick', 'snare']);
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Kick (solo)' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Unsolo' }));
+    expect(appStore.getState().ui.solo).toEqual(['snare']);
+  });
+
+  it('dims the rows that will not play while tracks are soloed', () => {
+    actions.toggleSolo('kick');
+    appStore.getState().apply((p) => ops.setTrackMuted(p, 'snare', true));
+    const { container } = render(<Grid />);
+    const silent = [...container.querySelectorAll('[data-silent]')].map((row) => row.querySelector('[data-track]')!.getAttribute('data-track'));
+    expect(silent).toEqual(['crash', 'ride', 'hhOpen', 'hhClosed', 'snare', 'tom1', 'tom2', 'floorTom']);
+  });
+
+  it('offers to unsolo everything from any row while other tracks are soloed', () => {
+    actions.toggleSolo('kick');
+    actions.toggleSolo('snare');
+    render(<Grid />);
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Crash' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Unsolo all' }));
+    expect(appStore.getState().ui.solo).toEqual([]);
   });
 
   it('renders triplet beats with three cells', () => {

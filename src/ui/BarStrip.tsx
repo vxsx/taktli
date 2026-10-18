@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 import type { PlayheadEvent } from '../audio/scheduler';
+import { isAudible } from '../model/timeline';
 import { TICKS_PER_BEAT } from '../model/timing';
 import { TRACKS } from '../model/tracks';
 import * as actions from '../state/actions';
@@ -17,11 +18,13 @@ export function BarStrip() {
   const follow = useApp((s) => s.ui.follow);
   const playing = useApp((s) => s.ui.playing);
   const settings = useApp((s) => s.project.tracks);
+  const solo = useApp((s) => s.ui.solo);
   // Thumbnails skip rows the pattern never plays, so the notes that are there draw larger.
   const rows = useMemo(
     () => TRACKS.filter((t) => !settings[t.id].hidden && pattern.bars.some((bar) => bar.beats.some((b) => b.cells[t.id].some((v) => v > 0)))),
     [settings, pattern.bars],
   );
+  const silent = useMemo(() => new Set(TRACKS.filter((t) => !isAudible(settings, solo, t.id)).map((t) => t.id)), [settings, solo]);
   const chips = useRef<HTMLDivElement>(null);
   const { dragIndex, itemProps } = useReorder({ scroller: chips, onTap: actions.selectBar, onMove: actions.moveBar });
 
@@ -49,7 +52,7 @@ export function BarStrip() {
             aria-current={i === barIndex}
             {...itemProps(i)}
           >
-            <MiniBar bar={bar} tracks={rows} settings={settings} />
+            <MiniBar bar={bar} tracks={rows} silent={silent} />
           </button>
         ))}
         <button className={styles.chip} aria-label="Add bar" onClick={actions.addBarAtEnd}>+</button>

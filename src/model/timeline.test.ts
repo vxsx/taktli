@@ -113,6 +113,15 @@ describe('notes', () => {
     expect(notesAtTick(p, ref, 0).map((n) => n.track)).toEqual(['crash']);
   });
 
+  it('plays only soloed tracks, and a muted track stays silent even when soloed', () => {
+    const p = createDemoProject();
+    const ref = { patternId: p.patterns[0].id, barIndex: 0, stepIndex: -1 };
+    expect(notesAtTick(p, ref, 0, ['kick']).map((n) => n.track)).toEqual(['kick']);
+    expect(notesAtTick(p, ref, 0, ['kick', 'crash']).map((n) => n.track)).toEqual(['crash', 'kick']);
+    const muted = ops.setTrackMuted(p, 'kick', true);
+    expect(notesAtTick(muted, ref, 0, ['kick', 'crash']).map((n) => n.track)).toEqual(['crash']);
+  });
+
   it('returns nothing for missing bars or patterns', () => {
     const p = createDemoProject();
     expect(notesAtTick(p, { patternId: p.patterns[0].id, barIndex: 9, stepIndex: -1 }, 0)).toEqual([]);

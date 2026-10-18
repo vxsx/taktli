@@ -1,5 +1,6 @@
 import { setTrackHidden, setTrackMuted } from '../model/ops';
 import { TRACKS } from '../model/tracks';
+import { toggleSolo } from '../state/actions';
 import { appStore, currentPattern, useApp } from '../state/store';
 import { closeModal, Sheet, showModal } from './modal';
 import styles from './Sheet.module.css';
@@ -7,6 +8,7 @@ import styles from './Sheet.module.css';
 function TracksSheet() {
   const tracks = useApp((s) => s.project.tracks);
   const pattern = useApp(currentPattern);
+  const solo = useApp((s) => s.ui.solo);
   const apply = appStore.getState().apply;
   return (
     <Sheet title="Tracks" onClose={closeModal}>
@@ -25,6 +27,9 @@ function TracksSheet() {
             </button>
             <button aria-pressed={s.muted} aria-label={`Mute ${t.label}`} onClick={() => apply((p) => setTrackMuted(p, t.id, !s.muted))}>
               {s.muted ? 'Muted' : 'Mute'}
+            </button>
+            <button aria-pressed={solo.includes(t.id)} aria-label={`Solo ${t.label}`} onClick={() => toggleSolo(t.id)}>
+              Solo
             </button>
           </div>
         );

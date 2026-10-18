@@ -4,6 +4,7 @@ import { clearRow, setTrackHidden, setTrackMuted } from '../model/ops';
 import { DEFAULT_VELOCITY } from '../model/timing';
 import { TRACK_BY_ID } from '../model/tracks';
 import type { TrackId } from '../model/types';
+import * as actions from '../state/actions';
 import { appStore, useApp } from '../state/store';
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from './gestures';
 import styles from './Grid.module.css';
@@ -13,6 +14,8 @@ import { Popover } from './Popover';
 export function TrackLabel({ track }: { track: TrackId }) {
   const def = TRACK_BY_ID[track];
   const muted = useApp((s) => s.project.tracks[track].muted);
+  const soloed = useApp((s) => s.ui.solo.includes(track));
+  const othersSoloed = useApp((s) => s.ui.solo.some((t) => t !== track));
   // The bar for "Clear row" is captured when the menu opens; Follow may move the view meanwhile.
   const [menu, setMenu] = useState<{ rect: DOMRect; patternId: string; barIndex: number } | null>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -46,7 +49,8 @@ export function TrackLabel({ track }: { track: TrackId }) {
         ref={button}
         className={styles.label}
         style={{ borderLeftColor: def.color }}
-        aria-label={`${def.label}${muted ? ' (muted)' : ''}`}
+        data-solo={soloed || undefined}
+        aria-label={`${def.label}${muted ? ' (muted)' : ''}${soloed ? ' (solo)' : ''}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={cancel}
@@ -70,6 +74,8 @@ export function TrackLabel({ track }: { track: TrackId }) {
             onClose={() => setMenu(null)}
             items={[
               { label: muted ? 'Unmute' : 'Mute', onSelect: () => st().apply((p) => setTrackMuted(p, track, !muted)) },
+              { label: soloed ? 'Unsolo' : 'Solo', onSelect: () => actions.toggleSolo(track) },
+              ...(othersSoloed ? [{ label: 'Unsolo all', onSelect: actions.clearSolo }] : []),
               { label: 'Hide track', onSelect: () => st().apply((p) => setTrackHidden(p, track, true)) },
               {
                 label: 'Clear row in this bar',
