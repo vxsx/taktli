@@ -52,6 +52,15 @@ test('copies a bar and pastes it into a new bar', async ({ page }) => {
   await expect(cell(page, 'crash', 0, 0)).toHaveAttribute('data-on', '');
 });
 
+test('Random rolls a groove into the bar and its chip shows it', async ({ page }) => {
+  const chip = page.getByRole('button', { name: 'Bar 1' });
+  await page.getByRole('button', { name: 'Clear' }).click();
+  await expect(chip.locator('[data-note]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Random' }).click();
+  await expect(cell(page, 'kick', 0, 0)).toHaveAttribute('data-on', '');
+  await expect(chip.locator('[data-note="kick"]').first()).toBeVisible();
+});
+
 test('switches a beat to triplets', async ({ page }) => {
   await page.getByRole('button', { name: /^Beat 4:/ }).click();
   await page.getByRole('menuitem', { name: '8th triplets' }).click();

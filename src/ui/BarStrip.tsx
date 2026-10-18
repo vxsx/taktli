@@ -1,9 +1,12 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { PlayheadEvent } from '../audio/scheduler';
+import { TICKS_PER_BEAT } from '../model/timing';
+import { TRACKS } from '../model/tracks';
 import * as actions from '../state/actions';
 import { appStore, currentPattern, useApp, type AppState } from '../state/store';
 import styles from './BarStrip.module.css';
 import { LongPressButton } from './LongPressButton';
+import { MiniBar } from './MiniBar';
 import { usePlayheadMarker } from './usePlayheadMarker';
 import { useReorder } from './useReorder';
 
@@ -13,6 +16,12 @@ export function BarStrip() {
   const loopBar = useApp((s) => s.ui.loopBar);
   const follow = useApp((s) => s.ui.follow);
   const playing = useApp((s) => s.ui.playing);
+  const settings = useApp((s) => s.project.tracks);
+  // Thumbnails skip rows the pattern never plays, so the notes that are there draw larger.
+  const rows = useMemo(
+    () => TRACKS.filter((t) => !settings[t.id].hidden && pattern.bars.some((bar) => bar.beats.some((b) => b.cells[t.id].some((v) => v > 0)))),
+    [settings, pattern.bars],
+  );
   const chips = useRef<HTMLDivElement>(null);
   const { dragIndex, itemProps } = useReorder({ scroller: chips, onTap: actions.selectBar, onMove: actions.moveBar });
 
@@ -21,6 +30,12 @@ export function BarStrip() {
     [],
   );
   usePlayheadMarker(chips, styles.playingChip, selectPlaying);
+  const selectPlayingBeat = useCallback(
+    (ph: PlayheadEvent, s: AppState) =>
+      ph.ref.patternId === s.ui.patternId ? `[data-index="${ph.ref.barIndex}"] [data-mini-beat="${Math.floor(ph.tick / TICKS_PER_BEAT)}"]` : null,
+    [],
+  );
+  usePlayheadMarker(chips, styles.miniBeatPlaying, selectPlayingBeat);
 
   const st = appStore.getState;
   return (
@@ -29,12 +44,12 @@ export function BarStrip() {
         {pattern.bars.map((bar, i) => (
           <button
             key={bar.id}
-            className={`${styles.chip} ${i === barIndex ? styles.current : ''} ${dragIndex === i ? styles.dragging : ''}`}
+            className={`${styles.chip} ${styles.barChip} ${i === barIndex ? styles.current : ''} ${dragIndex === i ? styles.dragging : ''}`}
             aria-label={`Bar ${i + 1}`}
             aria-current={i === barIndex}
             {...itemProps(i)}
           >
-            {i + 1}
+            <MiniBar bar={bar} tracks={rows} settings={settings} />
           </button>
         ))}
         <button className={styles.chip} aria-label="Add bar" onClick={actions.addBarAtEnd}>+</button>

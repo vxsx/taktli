@@ -7,6 +7,8 @@ vi.mock('../audio/transport', () => ({
 }));
 
 import { createDemoProject } from '../model/factory';
+import { setTrackHidden, setVelocity } from '../model/ops';
+import { TRACK_IDS } from '../model/tracks';
 import { appStore, currentBar, currentPattern } from '../state/store';
 import { BarStrip } from './BarStrip';
 import { LONG_PRESS_MS } from './gestures';
@@ -28,6 +30,29 @@ describe('BarStrip', () => {
     expect(screen.getAllByRole('button', { name: /^Bar \d+$/ })).toHaveLength(2);
     tap(screen.getByRole('button', { name: 'Bar 2' }));
     expect(appStore.getState().ui.barIndex).toBe(1);
+  });
+
+  it('draws each chip as a miniature of its bar instead of a number', () => {
+    render(<BarStrip />);
+    const chip = screen.getByRole('button', { name: 'Bar 1' });
+    expect(chip.textContent).toBe('');
+    const bar = currentPattern(appStore.getState()).bars[0];
+    const visible = TRACK_IDS.filter((t) => !appStore.getState().project.tracks[t].hidden);
+    const expected = bar.beats.reduce((n, b) => n + visible.reduce((m, t) => m + b.cells[t].filter((v) => v > 0).length, 0), 0);
+    expect(chip.querySelectorAll('[data-note]')).toHaveLength(expected);
+  });
+
+  it('leaves hidden tracks out of the miniatures and redraws after edits', () => {
+    render(<BarStrip />);
+    const chip = () => screen.getByRole('button', { name: 'Bar 1' });
+    const kicks = () => chip().querySelectorAll('[data-note="kick"]').length;
+    expect(kicks()).toBeGreaterThan(0);
+    act(() => appStore.getState().apply((p) => setTrackHidden(p, 'kick', true)));
+    expect(kicks()).toBe(0);
+    act(() => appStore.getState().apply((p) => setTrackHidden(p, 'kick', false)));
+    const before = kicks();
+    act(() => appStore.getState().apply((p) => setVelocity(p, p.patterns[0].id, 0, 3, 'kick', 3, 100)));
+    expect(kicks()).toBe(before + 1);
   });
 
   it('adds a bar and selects it', () => {

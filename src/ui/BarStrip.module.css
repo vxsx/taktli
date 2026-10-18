@@ -2,6 +2,11 @@
 .chips { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { min-width: 34px; flex-shrink: 0; touch-action: none; font-variant-numeric: tabular-nums; }
+.barChip { width: 64px; height: 30px; padding: 3px 4px; }
+.mini { display: block; width: 100%; height: 100%; pointer-events: none; }
+.miniBeat { fill: transparent; }
+.miniBeatAlt { fill: rgba(255, 255, 255, 0.05); }
+.miniBeatPlaying { fill: rgba(255, 255, 255, 0.22); }
 .current { background: #444456; outline: 2px solid var(--accent); outline-offset: -2px; }
 .playingChip { box-shadow: inset 0 -3px 0 var(--playhead); }
 .dragging { opacity: 0.55; transform: scale(1.08); }
