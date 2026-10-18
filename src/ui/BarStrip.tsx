@@ -45,6 +45,7 @@ export function BarStrip() {
         <button onClick={actions.copyBar}>Copy</button>
         <LongPressButton title="Hold to paste as a new bar" onClick={actions.pasteBar} onLongPress={actions.pasteBarAsNew}>Paste</LongPressButton>
         <button onClick={actions.duplicateCurrentBar}>Duplicate</button>
+        <LongPressButton title="Hold to roll every bar of the pattern" onClick={actions.randomizeCurrentBar} onLongPress={actions.randomizePattern}>Random</LongPressButton>
         <button onClick={actions.clearCurrentBar}>Clear</button>
         <button onClick={actions.deleteCurrentBar} disabled={pattern.bars.length <= 1}>Delete</button>
       </div>

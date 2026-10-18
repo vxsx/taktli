@@ -1,5 +1,6 @@
 import { produce, type Draft } from 'immer';
 import { cloneBar, createBar, createPattern, newId, nextPatternName } from './factory';
+import { randomizeBars as generate, type Rng } from './randomize';
 import { clamp, clampVelocity, convertCells } from './timing';
 import { TRACK_IDS } from './tracks';
 import type { Bar, KitName, Pattern, Project, Subdivision, TrackId, Velocity } from './types';
@@ -109,6 +110,18 @@ export function replaceBarContents(p: Project, patternId: string, barIndex: numb
   const copy = cloneBar(source);
   return editBar(p, patternId, barIndex, (bar) => {
     bar.beats = copy.beats;
+  });
+}
+
+/** Rolls a new groove into the bars at `indices`. Only visible tracks change, so nothing appears off-screen. */
+export function randomizeBars(p: Project, patternId: string, indices: readonly number[], rng?: Rng): Project {
+  const pat = p.patterns.find((x) => x.id === patternId);
+  if (!pat) return p;
+  const tracks = new Set(TRACK_IDS.filter((t) => !p.tracks[t].hidden));
+  const bars = generate(pat.bars, indices, { tracks, rng });
+  if (bars === pat.bars) return p;
+  return editPattern(p, patternId, (d) => {
+    d.bars = bars;
   });
 }
 

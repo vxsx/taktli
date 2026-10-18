@@ -7,7 +7,7 @@ vi.mock('../audio/transport', () => ({
 }));
 
 import { createDemoProject } from '../model/factory';
-import { appStore, currentPattern } from '../state/store';
+import { appStore, currentBar, currentPattern } from '../state/store';
 import { BarStrip } from './BarStrip';
 import { LONG_PRESS_MS } from './gestures';
 
@@ -55,6 +55,29 @@ describe('BarStrip', () => {
     fireEvent.pointerUp(chip1, { pointerId: 1, clientX: 60, clientY: 5 });
     expect(currentPattern(appStore.getState()).bars[1].id).toBe(first);
     expect(appStore.getState().ui.barIndex).toBe(1);
+  });
+
+  it('rolls a groove into the current bar', () => {
+    render(<BarStrip />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    const other = currentPattern(appStore.getState()).bars[1];
+    fireEvent.click(screen.getByRole('button', { name: 'Random' }));
+    expect(currentBar(appStore.getState()).beats[0].cells.kick[0]).toBeGreaterThan(0);
+    expect(currentPattern(appStore.getState()).bars[1]).toBe(other);
+  });
+
+  it('rolls every bar of the pattern on a long press', () => {
+    vi.useFakeTimers();
+    render(<BarStrip />);
+    const before = currentPattern(appStore.getState()).bars;
+    const random = screen.getByRole('button', { name: 'Random' });
+    fireEvent.pointerDown(random, { pointerId: 1, button: 0 });
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+    fireEvent.pointerUp(random, { pointerId: 1 });
+    fireEvent.click(random);
+    const after = currentPattern(appStore.getState()).bars;
+    expect(after.every((bar, i) => bar !== before[i])).toBe(true);
+    expect(appStore.getState().past).toHaveLength(1);
   });
 
   it('disables delete for the last remaining bar', () => {

@@ -60,6 +60,19 @@ export function clearCurrentBar(): void {
   s().apply((p) => ops.clearBar(p, ui.patternId, ui.barIndex));
 }
 
+export function randomizeCurrentBar(): void {
+  const { ui } = s();
+  s().apply((p) => ops.randomizeBars(p, ui.patternId, [ui.barIndex]));
+}
+
+export function randomizePattern(): void {
+  const { ui } = s();
+  const count = currentPattern(s()).bars.length;
+  const before = s().project;
+  s().apply((p) => ops.randomizeBars(p, ui.patternId, Array.from({ length: count }, (_, i) => i)));
+  if (s().project !== before) s().toast(count === 1 ? 'New groove' : `New groove in all ${count} bars`);
+}
+
 export function deleteCurrentBar(): void {
   const { ui } = s();
   s().apply((p) => ops.deleteBar(p, ui.patternId, ui.barIndex));

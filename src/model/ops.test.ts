@@ -190,3 +190,26 @@ describe('project settings', () => {
     expect(ops.setTrackHidden(p, 'tom2', true).tracks.tom2.hidden).toBe(true);
   });
 });
+
+describe('randomize ops', () => {
+  const rng = () => 0.42;
+
+  it('fills the chosen bars with a groove on the visible tracks only', () => {
+    const { p, pid } = setup();
+    const two = ops.addBar(p, pid);
+    const hidden = ops.setVelocity(ops.setTrackHidden(two, 'ride', true), pid, 0, 0, 'ride', 1, 90);
+    const a = ops.randomizeBars(hidden, pid, [0], rng);
+    const [bar0, bar1] = a.patterns[0].bars;
+    expect(bar0.beats[0].cells.kick[0]).toBeGreaterThan(0);
+    expect(bar0.beats.map((b) => b.cells.ride)).toEqual(hidden.patterns[0].bars[0].beats.map((b) => b.cells.ride));
+    expect(bar0.beats.flatMap((b) => b.cells.hhPedal).every((v) => v === 0)).toBe(true);
+    expect(bar1).toBe(hidden.patterns[0].bars[1]);
+    valid(a);
+  });
+
+  it('returns the same project when nothing can be written', () => {
+    const { p, pid } = setup();
+    expect(ops.randomizeBars(p, 'nope', [0], rng)).toBe(p);
+    expect(ops.randomizeBars(p, pid, [3], rng)).toBe(p);
+  });
+});

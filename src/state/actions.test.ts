@@ -41,6 +41,30 @@ describe('bar actions', () => {
     expect(currentPattern(s()).bars).toHaveLength(3);
   });
 
+  it('rolls a groove into the current bar only, and undo brings the old bar back', () => {
+    actions.addBarAtEnd();
+    const before = currentPattern(s()).bars;
+    actions.randomizeCurrentBar();
+    const after = currentPattern(s()).bars;
+    expect(after[2].beats[0].cells.kick[0]).toBeGreaterThan(0);
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).toBe(before[1]);
+    s().undo();
+    expect(currentPattern(s()).bars).toBe(before);
+  });
+
+  it('rolls one groove into every bar of the pattern as one undo step', () => {
+    actions.addBarAtEnd();
+    const before = s().project;
+    actions.randomizePattern();
+    const bars = currentPattern(s()).bars;
+    expect(bars.every((bar, i) => bar !== before.patterns[0].bars[i])).toBe(true);
+    expect(bars.every((bar) => bar.beats[0].cells.kick[0] > 0)).toBe(true);
+    expect(s().toasts.at(-1)?.message).toBe('New groove in all 3 bars');
+    s().undo();
+    expect(s().project).toBe(before);
+  });
+
   it('moves a bar and keeps it selected', () => {
     const id = currentPattern(s()).bars[0].id;
     actions.moveBar(0, 1);
