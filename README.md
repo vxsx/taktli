@@ -5,6 +5,7 @@ A little drum machine for your phone. Play it at https://vadim.sikora.name/taktl
 Phone-first and landscape-only, it has:
 - Patterns of 16-step bars with per-beat triplets, arranged into a song on a timeline.
 - In-place volume editing: tap to toggle a note, slide up or down to set its volume, drag sideways to paint, or use Volume mode to draw curves.
+- Bar thumbnails that show each bar's notes at a glance, and a Random button that rolls a groove into a bar (hold it for the whole pattern, ending in a fill).
 - Acoustic and electronic kits, swing, undo/redo.
 - Share links, MIDI export and drum notation.
 
