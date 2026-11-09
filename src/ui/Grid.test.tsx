@@ -197,10 +197,11 @@ describe('split cells', () => {
     root.querySelector<HTMLElement>(`[data-track="${track}"][data-beat="${beat}"][data-cell="${cell}"][data-half="${h}"]`)!;
   const beatOf = (barIndex: number, beat: number) => appStore.getState().project.patterns[0].bars[barIndex].beats[beat];
   const pid = () => appStore.getState().ui.patternId;
+  // The lift goes to the rows container: it holds pointer capture, and the pressed cell is gone after a split.
   const hold = (el: HTMLElement) => {
     down(el, 10, 10);
     act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
-    up(el, 10, 10);
+    up(screen.getByTestId('grid-rows'), 10, 10);
   };
 
   beforeEach(() => vi.useFakeTimers());
@@ -216,6 +217,11 @@ describe('split cells', () => {
     hold(halfEl(container, 'snare', 1, 3, 0));
     expect(beatOf(0, 1).splits.snare[3]).toBeNull();
     expect(container.querySelectorAll('[data-track="snare"][data-beat="1"][data-cell="3"]')).toHaveLength(1);
+  });
+
+  it("blocks the browser's long-press menu on cells so it can't interrupt a hold", () => {
+    const { container } = render(<Grid />);
+    expect(fireEvent.contextMenu(cellEl(container, 'snare', 0, 0))).toBe(false);
   });
 
   it('marks the cell while it is held', () => {

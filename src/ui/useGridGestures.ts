@@ -1,4 +1,4 @@
-import { useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useMemo, useRef, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { transport } from '../audio/transport';
 import { setVelocity, toggleSplit } from '../model/ops';
 import { velocityAt } from '../model/timing';
@@ -189,6 +189,11 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
         }
         s.endGesture();
         if (a.kind === 'slide' && !s.ui.playing) void transport.audition(a.hit.track, a.value);
+      },
+
+      /** A long press on a cell is ours (it splits the cell); the browser's own long-press menu would cut it short. */
+      onContextMenu(e: ReactMouseEvent<HTMLElement>) {
+        if (cellFromElement(e.target as Element)) e.preventDefault();
       },
 
       onPointerCancel(e: ReactPointerEvent<HTMLElement>) {
