@@ -1,4 +1,5 @@
-import { clamp, DEFAULT_VELOCITY } from '../model/timing';
+import { clamp, DEFAULT_VELOCITY, GHOST_VELOCITY } from '../model/timing';
+import type { Half, Velocity } from '../model/types';
 
 export const DRAG_THRESHOLD = 8;
 /** Vertical drag distance that sweeps the full velocity range. */
@@ -12,10 +13,15 @@ export function classifyDrag(dx: number, dy: number): DragKind {
   return Math.abs(dy) > Math.abs(dx) ? 'slide' : 'paint';
 }
 
-/** `dyUp` is positive when the finger moved up. */
-export function slideVelocity(start: number, dyUp: number): number {
-  const base = start > 0 ? start : DEFAULT_VELOCITY;
-  return clamp(Math.round(base + (dyUp * 127) / SLIDE_RANGE_PX), 1, 127);
+/** A new note's velocity: a right half is usually a ghost pickup, so it starts quiet. */
+export function defaultVelocity(half: Half): Velocity {
+  return half === 1 ? GHOST_VELOCITY : DEFAULT_VELOCITY;
+}
+
+/** `dyUp` is positive when the finger moved up; an empty cell slides from `base`. */
+export function slideVelocity(start: number, dyUp: number, base: number = DEFAULT_VELOCITY): number {
+  const from = start > 0 ? start : base;
+  return clamp(Math.round(from + (dyUp * 127) / SLIDE_RANGE_PX), 1, 127);
 }
 
 /** `yFraction` 0 = top of the cell (loudest), 1 = bottom (softest). */

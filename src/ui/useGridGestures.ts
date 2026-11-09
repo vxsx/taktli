@@ -1,10 +1,10 @@
 import { useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { transport } from '../audio/transport';
-import { setVelocity } from '../model/ops';
-import { DEFAULT_VELOCITY } from '../model/timing';
-import type { Project, TrackId } from '../model/types';
+import { setVelocity, toggleSplit } from '../model/ops';
+import { velocityAt } from '../model/timing';
+import type { Half, Project, TrackId } from '../model/types';
 import { appStore } from '../state/store';
-import { classifyDrag, paintValue, slideVelocity, volumeFromY } from './gestures';
+import { classifyDrag, defaultVelocity, LONG_PRESS_MS, paintValue, slideVelocity, volumeFromY } from './gestures';
 import type { BubbleHandle } from './VolumeBubble';
 
 interface CellHit {
@@ -12,6 +12,8 @@ interface CellHit {
   track: TrackId;
   beat: number;
   cell: number;
+  /** 1 for the right half of a split cell; 0 for a whole cell or a left half. */
+  half: Half;
 }
 
 interface Active {
@@ -28,12 +30,18 @@ interface Active {
   /** Last cell a paint/volume drag reached, so fast moves can fill the cells in between. */
   last: CellHit | null;
   lastValue: number;
+  holdTimer?: ReturnType<typeof setTimeout>;
+  /** The cell (or split pair) showing the hold ring. */
+  holdEl?: Element;
 }
 
 export function cellFromElement(el: Element | null | undefined): CellHit | null {
   const c = el?.closest?.<HTMLElement>('[data-cell]');
   if (!c || !c.dataset.track) return null;
-  return { el: c, track: c.dataset.track as TrackId, beat: Number(c.dataset.beat), cell: Number(c.dataset.cell) };
+  return {
+    el: c, track: c.dataset.track as TrackId, beat: Number(c.dataset.beat), cell: Number(c.dataset.cell),
+    half: c.dataset.half === '1' ? 1 : 0,
+  };
 }
 
 export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
@@ -43,10 +51,32 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
     const store = appStore;
     const velocityOf = (a: Pick<Active, 'patternId' | 'barIndex'>, h: CellHit) => {
       const pat = store.getState().project.patterns.find((p) => p.id === a.patternId);
-      return pat?.bars[a.barIndex]?.beats[h.beat]?.cells[h.track]?.[h.cell] ?? 0;
+      const beat = pat?.bars[a.barIndex]?.beats[h.beat];
+      return beat ? (velocityAt(beat, h.track, h.cell, h.half) ?? 0) : 0;
     };
     const edit = (a: Active, h: CellHit, v: number) => (p: Project) =>
-      setVelocity(p, a.patternId, a.barIndex, h.beat, h.track, h.cell, v);
+      setVelocity(p, a.patternId, a.barIndex, h.beat, h.track, h.cell, v, h.half);
+    const endHold = (a: Active) => {
+      clearTimeout(a.holdTimer);
+      a.holdEl?.removeAttribute('data-holding');
+      a.holdEl = undefined;
+    };
+    /**
+     * A press that stays put for LONG_PRESS_MS splits the cell, or merges a split one (in the bar it started in).
+     * That ends the gesture: the pressed element is replaced by the new layout, so lifting the finger does nothing.
+     */
+    const startHold = (a: Active) => {
+      a.holdEl = a.hit.el.closest('[data-pair]') ?? a.hit.el;
+      a.holdEl.setAttribute('data-holding', '');
+      a.holdTimer = setTimeout(() => {
+        endHold(a);
+        if (active.current !== a || a.kind !== 'pending') return;
+        active.current = null;
+        const { beat, track, cell } = a.hit;
+        store.getState().apply((p) => toggleSplit(p, a.patternId, a.barIndex, beat, track, cell));
+        navigator.vibrate?.(10);
+      }, LONG_PRESS_MS);
+    };
     const hitAt = (x: number, y: number) => cellFromElement(document.elementFromPoint?.(x, y));
     const applyMany = (a: Active, updates: [CellHit, number][]) => {
       if (updates.length === 0) return;
@@ -54,7 +84,7 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
     };
     /** Cells of the gesture's row from `from` to `to`, inclusive, in drag order. */
     const rowSpan = (a: Active, from: CellHit, to: CellHit): CellHit[] => {
-      const row = a.hit.el.parentElement?.parentElement;
+      const row = a.hit.el.closest('[data-row]');
       const cells = Array.from(row?.querySelectorAll<HTMLElement>('[data-cell]') ?? []);
       const i0 = cells.indexOf(from.el);
       const i1 = cells.indexOf(to.el);
@@ -68,7 +98,8 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
       return out;
     };
     const paintTo = (a: Active, h: CellHit) => {
-      applyMany(a, rowSpan(a, a.last ?? a.hit, h).map((c): [CellHit, number] => [c, a.value]));
+      // Adding notes puts ghost volume into right halves; erasing clears everything passed.
+      applyMany(a, rowSpan(a, a.last ?? a.hit, h).map((c): [CellHit, number] => [c, a.value > 0 ? defaultVelocity(c.half) : 0]));
       a.last = h;
     };
     /** Volume mode: sets the touched note and interpolates the notes skipped since the last move. */
@@ -108,6 +139,8 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
         if (a.kind === 'volume') {
           store.getState().beginGesture();
           volumeTo(a, hit, e.clientY);
+        } else {
+          startHold(a);
         }
       },
 
@@ -122,6 +155,7 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
         if (a.kind === 'pending') {
           const kind = classifyDrag(e.clientX - a.startX, e.clientY - a.startY);
           if (kind === 'pending') return;
+          endHold(a);
           a.kind = kind;
           store.getState().beginGesture();
           if (kind === 'paint') {
@@ -130,7 +164,7 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
           }
         }
         if (a.kind === 'slide') {
-          const v = slideVelocity(a.startVelocity, a.startY - e.clientY);
+          const v = slideVelocity(a.startVelocity, a.startY - e.clientY, defaultVelocity(a.hit.half));
           a.value = v;
           store.getState().applyTransient(edit(a, a.hit, v));
           bubble.current?.show(a.hit.el.getBoundingClientRect(), v);
@@ -144,10 +178,11 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
         const a = active.current;
         if (!a || e.pointerId !== a.pointerId) return;
         active.current = null;
+        endHold(a);
         bubble.current?.hide();
         const s = store.getState();
         if (a.kind === 'pending') {
-          const next = a.startVelocity > 0 ? 0 : DEFAULT_VELOCITY;
+          const next = a.startVelocity > 0 ? 0 : defaultVelocity(a.hit.half);
           s.apply(edit(a, a.hit, next));
           if (next > 0 && !s.ui.playing) void transport.audition(a.hit.track, next);
           return;
@@ -160,6 +195,7 @@ export function useGridGestures(bubble: RefObject<BubbleHandle | null>) {
         const a = active.current;
         if (!a || e.pointerId !== a.pointerId) return;
         active.current = null;
+        endHold(a);
         bubble.current?.hide();
         store.getState().endGesture();
       },

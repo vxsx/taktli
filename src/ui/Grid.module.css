@@ -24,6 +24,17 @@
   background: var(--cell); touch-action: none; cursor: pointer;
 }
 .beatAlt .cell { background: var(--cell-alt); }
+/* A split cell: two 32nd halves sharing one 16th's width. */
+.pair { flex: 1; min-width: 0; display: flex; gap: 2px; position: relative; border-radius: 4px; }
+.pair .cell:first-child { border-radius: 4px 1px 1px 4px; }
+.pair .cell:last-child { border-radius: 1px 4px 4px 1px; }
+/* Held long enough, this cell splits or merges: an accent ring fades in over the hold time (LONG_PRESS_MS). */
+[data-holding]::after {
+  content: ''; position: absolute; inset: 0; border-radius: 4px; pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--accent); animation: holding 450ms linear forwards;
+}
+.pair[data-holding]::after { box-shadow: 0 0 0 2px var(--accent); }
+@keyframes holding { from { opacity: 0; } to { opacity: 1; } }
 .fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; pointer-events: none; }
 .value {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;

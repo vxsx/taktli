@@ -37,7 +37,7 @@ export function Grid() {
       <BeatHeader />
       <div ref={rows} className={styles.rows} data-testid="grid-rows" {...handlers}>
         {visible.map((t) => (
-          <div key={t.id} className={styles.row} data-silent={!isAudible(tracks, solo, t.id) || undefined}>
+          <div key={t.id} className={styles.row} data-row={t.id} data-silent={!isAudible(tracks, solo, t.id) || undefined}>
             <TrackLabel track={t.id} />
             {bar.beats.map((beat, i) => (
               <BeatGroup key={i} track={t.id} beatIndex={i} beat={beat} color={t.color} showValues={editMode === 'volume'} />

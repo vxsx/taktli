@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../audio/transport', () => ({
@@ -12,6 +12,7 @@ import type { TrackId } from '../model/types';
 import * as actions from '../state/actions';
 import { appStore, currentBar } from '../state/store';
 import { Grid } from './Grid';
+import { LONG_PRESS_MS } from './gestures';
 
 const cellEl = (root: HTMLElement, track: TrackId, beat: number, cell: number) =>
   root.querySelector<HTMLElement>(`[data-track="${track}"][data-beat="${beat}"][data-cell="${cell}"]`)!;
@@ -188,5 +189,117 @@ describe('Grid', () => {
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Crash' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Unsolo all' }));
     expect(appStore.getState().ui.solo).toEqual([]);
+  });
+});
+
+describe('split cells', () => {
+  const halfEl = (root: HTMLElement, track: TrackId, beat: number, cell: number, h: 0 | 1) =>
+    root.querySelector<HTMLElement>(`[data-track="${track}"][data-beat="${beat}"][data-cell="${cell}"][data-half="${h}"]`)!;
+  const beatOf = (barIndex: number, beat: number) => appStore.getState().project.patterns[0].bars[barIndex].beats[beat];
+  const pid = () => appStore.getState().ui.patternId;
+  const hold = (el: HTMLElement) => {
+    down(el, 10, 10);
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
+    up(el, 10, 10);
+  };
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('splits a cell after a hold and merges it after another', () => {
+    appStore.getState().apply((p) => ops.setVelocity(p, pid(), 0, 1, 'snare', 3, 90));
+    const { container } = render(<Grid />);
+    hold(cellEl(container, 'snare', 1, 3));
+    expect(beatOf(0, 1).splits.snare[3]).toBe(0);
+    expect(beatOf(0, 1).cells.snare[3]).toBe(90); // the release after a hold doesn't toggle the note
+    expect(container.querySelectorAll('[data-track="snare"][data-beat="1"][data-cell="3"][data-half]')).toHaveLength(2);
+    hold(halfEl(container, 'snare', 1, 3, 0));
+    expect(beatOf(0, 1).splits.snare[3]).toBeNull();
+    expect(container.querySelectorAll('[data-track="snare"][data-beat="1"][data-cell="3"]')).toHaveLength(1);
+  });
+
+  it('marks the cell while it is held', () => {
+    const { container } = render(<Grid />);
+    const c = cellEl(container, 'snare', 0, 0);
+    down(c, 10, 10);
+    expect(c.hasAttribute('data-holding')).toBe(true);
+    up(c, 10, 10);
+    expect(c.hasAttribute('data-holding')).toBe(false);
+  });
+
+  it('does not split when the finger moves before the hold fires', () => {
+    const { container } = render(<Grid />);
+    const c = cellEl(container, 'snare', 0, 2);
+    down(c, 10, 100);
+    move(c, 10, 80);
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
+    up(c, 10, 80);
+    expect(beatOf(0, 0).splits.snare[2]).toBeNull();
+    expect(beatOf(0, 0).cells.snare[2]).toBe(117);
+  });
+
+  it('does not split after pointercancel', () => {
+    const { container } = render(<Grid />);
+    const c = cellEl(container, 'snare', 0, 2);
+    down(c, 10, 10);
+    fireEvent.pointerCancel(c, { pointerId: 1 });
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
+    expect(beatOf(0, 0).splits.snare[2]).toBeNull();
+    expect(c.hasAttribute('data-holding')).toBe(false);
+  });
+
+  it('splits the bar where the hold started even if Follow moved the view', () => {
+    appStore.getState().apply((p) => ops.addBar(p, pid()));
+    const { container } = render(<Grid />);
+    const c = cellEl(container, 'kick', 2, 1);
+    down(c, 10, 10);
+    act(() => appStore.getState().setUi({ barIndex: 1 }));
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
+    up(c, 10, 10);
+    expect(beatOf(0, 2).splits.kick[1]).toBe(0);
+    expect(beatOf(1, 2).splits.kick[1]).toBeNull();
+  });
+
+  it('taps a ghost note into a right half', () => {
+    appStore.getState().apply((p) => ops.toggleSplit(p, pid(), 0, 0, 'snare', 3));
+    const { container } = render(<Grid />);
+    const right = halfEl(container, 'snare', 0, 3, 1);
+    down(right, 10, 10);
+    up(right, 10, 10);
+    expect(beatOf(0, 0).splits.snare[3]).toBe(40);
+    expect(beatOf(0, 0).cells.snare[3]).toBe(0);
+    expect(halfEl(container, 'snare', 0, 3, 1).dataset.on).toBeDefined();
+  });
+
+  it('paints ghost volume into right halves', () => {
+    appStore.getState().apply((p) => ops.toggleSplit(p, pid(), 0, 0, 'snare', 1));
+    const { container } = render(<Grid />);
+    document.elementFromPoint = vi.fn((x: number) => (x === 200 ? cellEl(container, 'snare', 0, 2) : null));
+    const start = cellEl(container, 'snare', 0, 0);
+    down(start, 0, 10);
+    move(start, 200, 10);
+    up(start, 200, 10);
+    expect([0, 1, 2, 3].map((i) => vel('snare', 0, i))).toEqual([100, 100, 100, 0]);
+    expect(beatOf(0, 0).splits.snare[1]).toBe(40);
+  });
+
+  it('merging drops the right half and undo restores it', () => {
+    appStore.getState().apply((p) => ops.setVelocity(ops.toggleSplit(p, pid(), 0, 2, 'snare', 0), pid(), 0, 2, 'snare', 0, 40, 1));
+    const { container } = render(<Grid />);
+    hold(halfEl(container, 'snare', 2, 0, 1));
+    expect(beatOf(0, 2).splits.snare[0]).toBeNull();
+    act(() => appStore.getState().undo());
+    expect(beatOf(0, 2).splits.snare[0]).toBe(40);
+  });
+
+  it('does not split in Volume mode', () => {
+    appStore.getState().setUi({ editMode: 'volume' });
+    const { container } = render(<Grid />);
+    const c = cellEl(container, 'snare', 0, 1);
+    vi.spyOn(c, 'getBoundingClientRect').mockReturnValue(rect(0, 100));
+    down(c, 5, 10);
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
+    up(c, 5, 10);
+    expect(beatOf(0, 0).splits.snare[1]).toBeNull();
   });
 });

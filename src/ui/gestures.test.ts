@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyDrag, paintValue, slideVelocity, volumeFromY } from './gestures';
+import { classifyDrag, defaultVelocity, paintValue, slideVelocity, volumeFromY } from './gestures';
 
 describe('gestures', () => {
   it('stays pending until the pointer moves 8px', () => {
@@ -14,6 +14,16 @@ describe('gestures', () => {
     expect(slideVelocity(0, 30)).toBe(125);
     expect(slideVelocity(60, -75)).toBe(1);
     expect(slideVelocity(100, 500)).toBe(127);
+  });
+
+  it('slides an empty right half up from ghost volume', () => {
+    expect(slideVelocity(0, 0, 40)).toBe(40);
+    expect(slideVelocity(0, 30, 40)).toBe(65);
+  });
+
+  it('starts new notes at 100, or at ghost volume in a right half', () => {
+    expect(defaultVelocity(0)).toBe(100);
+    expect(defaultVelocity(1)).toBe(40);
   });
 
   it('maps touch height to volume', () => {
