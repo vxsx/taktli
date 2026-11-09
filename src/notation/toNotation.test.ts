@@ -39,6 +39,55 @@ describe('toNotation', () => {
 
 });
 
+describe('32nd notes', () => {
+  /** Puts a note on each 32nd slot of one beat: even slots are cells, odd slots right halves (the cell gets split). */
+  function beatWith(track: TrackId, slots: Record<number, number>): Bar {
+    const b = createBar();
+    for (const [slot, v] of Object.entries(slots).map(([k, v]) => [Number(k), v])) {
+      const cell = slot >> 1;
+      if (slot & 1) b.beats[0].splits[track][cell] = v;
+      else b.beats[0].cells[track][cell] = v;
+    }
+    return b;
+  }
+  const SIZE: Record<string, number> = { '32': 1, '16': 2, '16d': 3, '8': 4, '8d': 6, q: 8 };
+
+  it('writes a ghost pickup on the last 32nd', () => {
+    const b = createBar();
+    b.beats[0].cells.hhClosed[0] = 100;
+    b.beats[0].cells.hhClosed[2] = 80;
+    b.beats[0].splits.snare[3] = 38;
+    const n = toNotation(b);
+    expect(durs(n.hands[0])).toEqual(['8', '16d', '32']);
+    expect(n.hands[0].events[2].hits).toEqual([{ track: 'snare', velocity: 38 }]);
+  });
+
+  it('writes a split cell with only its left half like a plain 16th', () => {
+    const b = bar([[0, 'snare', 1]]);
+    b.beats[0].splits.snare[1] = 0;
+    expect(durs(toNotation(b).hands[0])).toEqual(durs(toNotation(bar([[0, 'snare', 1]])).hands[0]));
+  });
+
+  it('splits a 5-32nd note at the half beat', () => {
+    expect(durs(toNotation(beatWith('snare', { 3: 90 })).hands[0])).toEqual(['16dr', '32', '8r']);
+  });
+
+  it('splits a leading 7-32nd rest at the half beat', () => {
+    expect(durs(toNotation(beatWith('snare', { 7: 90 })).hands[0])).toEqual(['8r', '16dr', '32']);
+  });
+
+  it('every beat adds up to one quarter for any mix of cells and halves', () => {
+    for (let mask = 0; mask < 256; mask++) {
+      const slots: Record<number, number> = {};
+      for (let s = 0; s < 8; s++) if (mask & (1 << s)) slots[s] = 90;
+      const events = toNotation(beatWith('snare', slots)).hands[0].events;
+      const total = events.reduce((n, e) => n + SIZE[e.duration], 0);
+      expect(total, `mask ${mask.toString(2)}`).toBe(8);
+      expect(events.filter((e) => !e.rest).length, `mask ${mask.toString(2)}`).toBe(Object.keys(slots).length);
+    }
+  });
+});
+
 describe('notationMarks', () => {
   it('flags accents and ghost notes from velocity', () => {
     expect(notationMarks([{ track: 'snare', velocity: 120 }])).toEqual({ keys: [{ key: 'c/5', ghost: false }], accent: true, open: false });

@@ -23,7 +23,7 @@ const STAVE_Y = 28;
 
 function makeNote(VF: VF, ev: NotationEvent, voice: 'hands' | 'feet'): StaveNote {
   const stemDirection = voice === 'hands' ? VF.Stem.UP : VF.Stem.DOWN;
-  const dotted = ev.duration === '8d';
+  const dotted = ev.duration === '8d' || ev.duration === '16d';
   if (ev.rest) {
     const rest = new VF.StaveNote({ keys: [voice === 'hands' ? 'b/4' : 'e/4'], duration: `${ev.duration}r`, stemDirection });
     if (dotted) VF.Dot.buildAndAttach([rest], { all: true });
