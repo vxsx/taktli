@@ -25,7 +25,7 @@ function SwingSheet() {
         />
         <output>{pattern.swing}%</output>
       </label>
-      <p className={styles.hint}>Delays the off-beat 16ths. About 67% is a triplet shuffle. Triplet beats are not affected.</p>
+      <p className={styles.hint}>Delays the off-beat 16ths. About 67% is a triplet shuffle. The second half of a split step moves half as much.</p>
     </Sheet>
   );
 }

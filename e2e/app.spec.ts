@@ -52,6 +52,23 @@ test('copies a bar and pastes it into a new bar', async ({ page }) => {
   await expect(cell(page, 'crash', 0, 0)).toHaveAttribute('data-on', '');
 });
 
+test('holding a cell splits it and a tap adds a ghost pickup that survives a reload', async ({ page }) => {
+  const box = (await cell(page, 'snare', 0, 3).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.up();
+  const halves = page.locator('[data-track="snare"][data-beat="0"][data-cell="3"][data-half]');
+  await expect(halves).toHaveCount(2);
+  const right = halves.and(page.locator('[data-half="1"]'));
+  await right.tap();
+  await expect(right).toHaveAttribute('data-on', '');
+  await expect(right).toHaveAttribute('aria-label', /right half volume 40$/);
+  await page.waitForTimeout(800);
+  await page.reload();
+  await expect(page.locator('[data-track="snare"][data-beat="0"][data-cell="3"][data-half="1"]')).toHaveAttribute('data-on', '');
+});
+
 test('Random rolls a groove into the bar and its chip shows it', async ({ page }) => {
   const chip = page.getByRole('button', { name: 'Bar 1' });
   await page.getByRole('button', { name: 'Clear' }).click();
@@ -108,6 +125,18 @@ test('renders notation', async ({ page }) => {
   const svg = page.getByTestId('notation').locator('svg');
   await expect(svg).toBeVisible();
   expect(await svg.locator('.vf-stavenote').count()).toBeGreaterThan(10);
+});
+
+test('renders notation for a pattern with 32nds without errors @desktop', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.getByRole('button', { name: 'Pattern' }).click();
+  await page.getByRole('menuitem', { name: /^B · / }).click();
+  await openMore(page, 'Notation');
+  const svg = page.getByTestId('notation').locator('svg');
+  await expect(svg).toBeVisible();
+  expect(await svg.locator('.vf-stavenote').count()).toBeGreaterThan(10);
+  expect(errors).toEqual([]);
 });
 
 /** Drawn note parts that stick out of the bar they belong to (VexFlow draws each stave, then its notes). */
