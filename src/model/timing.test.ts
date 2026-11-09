@@ -1,42 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import {
-  cellAtTick, cellContainingTick, cellTick, clampVelocity, convertCells,
-  swingOffset, velocityToGain,
-} from './timing';
+import { createBeat } from './factory';
+import { clampVelocity, convertTriplets, swingOffset, tickOf, velocityAt, velocityToGain } from './timing';
 
 describe('tick math', () => {
-  it('places cells on the 12-tick beat grid', () => {
-    expect(cellTick(0, 4, 0)).toBe(0);
-    expect(cellTick(1, 4, 3)).toBe(21);
-    expect(cellTick(3, 3, 2)).toBe(44);
-    expect(cellTick(2, 6, 5)).toBe(34);
+  it('places 16ths and their halves on the 8-tick beat grid', () => {
+    expect(tickOf(0, 0, 0)).toBe(0);
+    expect(tickOf(1, 3, 0)).toBe(14);
+    expect(tickOf(2, 3, 1)).toBe(23);
   });
 
-  it('finds the cell exactly at a tick, or -1', () => {
-    expect(cellAtTick(4, 6)).toBe(2);
-    expect(cellAtTick(4, 4)).toBe(-1);
-    expect(cellAtTick(3, 4)).toBe(1);
-    expect(cellAtTick(6, 10)).toBe(5);
-  });
-
-  it('finds the cell containing a tick', () => {
-    expect(cellContainingTick(4, 5)).toBe(1);
-    expect(cellContainingTick(3, 11)).toBe(2);
+  it('reads a right half only when the cell is split', () => {
+    const beat = createBeat();
+    beat.cells.snare[1] = 90;
+    expect(velocityAt(beat, 'snare', 1, 0)).toBe(90);
+    expect(velocityAt(beat, 'snare', 1, 1)).toBe(0);
+    beat.splits.snare[1] = 40;
+    expect(velocityAt(beat, 'snare', 1, 1)).toBe(40);
   });
 });
 
 describe('swing', () => {
-  it('delays only 16th off-beats', () => {
-    expect(swingOffset(4, 0, 100)).toBe(0);
-    expect(swingOffset(4, 1, 100)).toBe(1.5);
-    expect(swingOffset(4, 3, 50)).toBe(0.75);
-    expect(swingOffset(3, 1, 100)).toBe(0);
-    expect(swingOffset(6, 1, 100)).toBe(0);
+  it('delays off-beat 16ths by up to one tick and right halves by half that', () => {
+    expect(swingOffset(0, 0, 100)).toBe(0);
+    expect(swingOffset(1, 0, 100)).toBe(1);
+    expect(swingOffset(3, 0, 50)).toBe(0.5);
+    expect(swingOffset(2, 0, 100)).toBe(0);
+    expect(swingOffset(0, 1, 100)).toBe(0.5);
+    expect(swingOffset(3, 1, 100)).toBe(0.5);
+    expect(swingOffset(1, 1, 50)).toBe(0.25);
   });
 
   it('clamps swing to 0..100', () => {
-    expect(swingOffset(4, 1, 250)).toBe(1.5);
-    expect(swingOffset(4, 1, -5)).toBe(0);
+    expect(swingOffset(1, 0, 250)).toBe(1);
+    expect(swingOffset(1, 0, -5)).toBe(0);
   });
 });
 
@@ -54,30 +50,16 @@ describe('velocity', () => {
   });
 });
 
-describe('convertCells', () => {
-  it('returns a copy when the subdivision is unchanged', () => {
-    const src = [1, 0, 3, 0];
-    const out = convertCells(src, 4, 4);
-    expect(out).toEqual(src);
-    expect(out).not.toBe(src);
+describe('convertTriplets', () => {
+  it('moves 8th triplets to 32nds 0, 3 and 5', () => {
+    expect(convertTriplets([90, 80, 70], 3)).toEqual({ cells: [90, 0, 0, 0], splits: [null, 80, 70, null] });
   });
 
-  it('maps 16ths to 8th triplets by nearest tick', () => {
-    // ticks 0,3,6,9 → triplet ticks 0,4,8: 0→0, 3→1 (4), 6→2 (8 is nearer than 4? 6/4=1.5 → rounds to 2), 9→2
-    expect(convertCells([100, 0, 0, 0], 4, 3)).toEqual([100, 0, 0]);
-    expect(convertCells([0, 90, 0, 0], 4, 3)).toEqual([0, 90, 0]);
-    expect(convertCells([0, 0, 0, 80], 4, 3)).toEqual([0, 0, 80]);
+  it('moves 16th triplets to 32nds 0, 1, 3, 4, 5 and 7', () => {
+    expect(convertTriplets([1, 2, 3, 4, 5, 6], 6)).toEqual({ cells: [1, 0, 4, 0], splits: [2, 3, 5, 6] });
   });
 
-  it('keeps the louder note when two collide', () => {
-    expect(convertCells([0, 0, 50, 120], 4, 3)).toEqual([0, 0, 120]);
-  });
-
-  it('never maps past the last cell', () => {
-    expect(convertCells([0, 0, 0, 0, 0, 70], 6, 3)).toEqual([0, 0, 70]);
-  });
-
-  it('round-trips 8th triplets through 16th triplets exactly', () => {
-    expect(convertCells(convertCells([10, 20, 30], 3, 6), 6, 3)).toEqual([10, 20, 30]);
+  it('splits a cell only where a note lands on its right half', () => {
+    expect(convertTriplets([90, 0, 0], 3).splits).toEqual([null, null, null, null]);
   });
 });

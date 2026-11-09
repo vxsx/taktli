@@ -22,8 +22,7 @@ function richProject(): Project {
   p = ops.setSwing(p, p.patterns[0].id, 57);
   p = ops.setKit(p, 'electronic');
   p = ops.setBpm(p, 133);
-  p = ops.setBeatDiv(p, p.patterns[0].id, 1, 2, 6);
-  p = ops.setVelocity(p, p.patterns[0].id, 1, 2, 'snare', 5, 127);
+  p = ops.setVelocity(p, p.patterns[0].id, 1, 2, 'snare', 3, 127);
   return p;
 }
 
@@ -64,6 +63,29 @@ describe('share codec', () => {
     compact.p[0][2][0][0] = '4abc';
     expect(() => fromCompact(compact)).toThrow(ShareError);
     expect(() => fromCompact({ v: 2 })).toThrow(ShareError);
+  });
+
+  it('round-trips split cells, keeping an empty split apart from a whole cell', () => {
+    let p = createDemoProject();
+    const pid = p.patterns[0].id;
+    p = ops.toggleSplit(p, pid, 0, 1, 'snare', 3);
+    p = ops.setVelocity(p, pid, 0, 1, 'snare', 3, 38, 1);
+    p = ops.toggleSplit(p, pid, 0, 2, 'kick', 1);
+    const beats = fromCompact(JSON.parse(JSON.stringify(toCompact(p)))).patterns[0].bars[0].beats;
+    expect(beats[1].splits.snare).toEqual([null, null, null, 38]);
+    expect(beats[2].splits.kick).toEqual([null, 0, null, null]);
+    expect(beats[2].splits.snare).toEqual([null, null, null, null]);
+  });
+
+  it('rejects malformed v2 beats', () => {
+    const good = toCompact(createDemoProject());
+    expect(good.v).toBe(2);
+    const short = toCompact(createDemoProject());
+    short.p[0][2][0][0] = short.p[0][2][0][0].slice(1);
+    expect(() => fromCompact(short)).toThrow(ShareError);
+    const bad = toCompact(createDemoProject());
+    bad.p[0][2][0][0] = 'zz' + bad.p[0][2][0][0].slice(2);
+    expect(() => fromCompact(bad)).toThrow(ShareError);
   });
 
   it('builds and parses share URLs', () => {

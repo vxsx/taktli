@@ -189,11 +189,4 @@ describe('Grid', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Unsolo all' }));
     expect(appStore.getState().ui.solo).toEqual([]);
   });
-
-  it('renders triplet beats with three cells', () => {
-    const pid = appStore.getState().ui.patternId;
-    appStore.getState().apply((p) => ops.setBeatDiv(p, pid, 0, 3, 3));
-    const { container } = render(<Grid />);
-    expect(container.querySelectorAll('[data-track="kick"][data-beat="3"]')).toHaveLength(3);
-  });
 });

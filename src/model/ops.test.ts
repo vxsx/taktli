@@ -29,24 +29,38 @@ describe('note ops', () => {
     expect(ops.setVelocity(p, 'nope', 0, 0, 'kick', 0, 100)).toBe(p);
   });
 
-  it('changes a beat subdivision and remaps notes', () => {
+  it('splits and merges a cell; merging drops the right half', () => {
     const { p, pid } = setup();
-    const a = ops.setVelocity(p, pid, 0, 3, 'snare', 3, 90);
-    const b = ops.setBeatDiv(a, pid, 0, 3, 3);
-    expect(b.patterns[0].bars[0].beats[3].div).toBe(3);
-    expect(b.patterns[0].bars[0].beats[3].cells.snare).toEqual([0, 0, 90]);
-    expect(b.patterns[0].bars[0].beats[3].cells.kick).toEqual([0, 0, 0]);
-    valid(b);
-    expect(ops.setBeatDiv(b, pid, 0, 3, 3)).toBe(b);
+    let a = ops.setVelocity(p, pid, 0, 3, 'snare', 1, 90);
+    a = ops.toggleSplit(a, pid, 0, 3, 'snare', 1);
+    const beat = () => a.patterns[0].bars[0].beats[3];
+    expect(beat().splits.snare[1]).toBe(0);
+    expect(beat().cells.snare).toEqual([0, 90, 0, 0]);
+    expect(beat().splits.kick[1]).toBeNull();
+    valid(a);
+    a = ops.setVelocity(a, pid, 0, 3, 'snare', 1, 40, 1);
+    expect(beat().splits.snare[1]).toBe(40);
+    a = ops.toggleSplit(a, pid, 0, 3, 'snare', 1);
+    expect(beat().splits.snare[1]).toBeNull();
+    expect(beat().cells.snare[1]).toBe(90);
+    valid(a);
   });
 
-  it('clears a row across all beats', () => {
+  it('ignores right-half edits on a whole cell', () => {
+    const { p, pid } = setup();
+    expect(ops.setVelocity(p, pid, 0, 0, 'snare', 2, 40, 1)).toBe(p);
+  });
+
+  it('clears a row across all beats and merges its splits', () => {
     const { p, pid } = setup();
     let a = ops.setVelocity(p, pid, 0, 0, 'kick', 0, 100);
     a = ops.setVelocity(a, pid, 0, 2, 'kick', 2, 100);
     a = ops.setVelocity(a, pid, 0, 2, 'snare', 2, 100);
+    a = ops.toggleSplit(a, pid, 0, 1, 'kick', 3);
+    a = ops.setVelocity(a, pid, 0, 1, 'kick', 3, 40, 1);
     const b = ops.clearRow(a, pid, 0, 'kick');
     expect(b.patterns[0].bars[0].beats.every((bt) => bt.cells.kick.every((v) => v === 0))).toBe(true);
+    expect(b.patterns[0].bars[0].beats.every((bt) => bt.splits.kick.every((v) => v === null))).toBe(true);
     expect(b.patterns[0].bars[0].beats[2].cells.snare[2]).toBe(100);
   });
 });
@@ -83,25 +97,32 @@ describe('bar ops', () => {
   it('pastes bar contents but keeps the target bar id', () => {
     const { p, pid } = setup();
     const source = createBar('src');
-    source.beats[1] = createBeat(3);
+    source.beats[1] = createBeat();
     source.beats[1].cells.tom1[1] = 77;
+    source.beats[1].splits.tom1[1] = 38;
     const target = p.patterns[0].bars[0].id;
     const a = ops.replaceBarContents(p, pid, 0, source);
     expect(a.patterns[0].bars[0].id).toBe(target);
-    expect(a.patterns[0].bars[0].beats[1].div).toBe(3);
     expect(a.patterns[0].bars[0].beats[1].cells.tom1[1]).toBe(77);
+    expect(a.patterns[0].bars[0].beats[1].splits.tom1[1]).toBe(38);
     source.beats[1].cells.tom1[1] = 1;
+    source.beats[1].splits.tom1[1] = 1;
     expect(a.patterns[0].bars[0].beats[1].cells.tom1[1]).toBe(77);
+    expect(a.patterns[0].bars[0].beats[1].splits.tom1[1]).toBe(38);
     valid(a);
   });
 
-  it('clears notes but keeps subdivisions', () => {
+  it('clears notes and merges every split cell', () => {
     const { p, pid } = setup();
-    let a = ops.setBeatDiv(p, pid, 0, 2, 6);
-    a = ops.setVelocity(a, pid, 0, 2, 'ride', 4, 60);
+    let a = ops.setVelocity(p, pid, 0, 2, 'ride', 3, 60);
+    a = ops.toggleSplit(a, pid, 0, 2, 'ride', 3);
+    a = ops.setVelocity(a, pid, 0, 2, 'ride', 3, 40, 1);
+    a = ops.toggleSplit(a, pid, 0, 0, 'snare', 0);
     a = ops.clearBar(a, pid, 0);
-    expect(a.patterns[0].bars[0].beats[2].div).toBe(6);
-    expect(a.patterns[0].bars[0].beats[2].cells.ride).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(a.patterns[0].bars[0].beats[2].cells.ride).toEqual([0, 0, 0, 0]);
+    expect(a.patterns[0].bars[0].beats[2].splits.ride).toEqual([null, null, null, null]);
+    expect(a.patterns[0].bars[0].beats[0].splits.snare).toEqual([null, null, null, null]);
+    valid(a);
   });
 });
 

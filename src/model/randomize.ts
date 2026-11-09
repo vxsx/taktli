@@ -1,6 +1,6 @@
 import { cloneBar } from './factory';
-import { clamp, GHOST_MAX, TICKS_PER_BEAT } from './timing';
-import type { Bar, Subdivision, TrackId, Velocity } from './types';
+import { CELLS_PER_BEAT, clamp, GHOST_MAX } from './timing';
+import type { Bar, Split, TrackId, Velocity } from './types';
 
 export type Rng = () => number;
 
@@ -13,11 +13,9 @@ export interface RandomizeOptions {
 /** Where a cell sits in its beat: the beat itself, the "and" between beats, or a weaker step. */
 type Slot = 'down' | 'and' | 'weak';
 
-function slotOf(div: Subdivision, cell: number): Slot {
+function slotOf(cell: number): Slot {
   if (cell === 0) return 'down';
-  // In triplet beats the last step is the swung "and".
-  if (cell * 2 === div || (div === 3 && cell === 2)) return 'and';
-  return 'weak';
+  return cell === 2 ? 'and' : 'weak';
 }
 
 /** Musical choices shared by every bar of one roll, so the bars sound like one groove. */
@@ -31,7 +29,7 @@ interface Plan {
   halfTime: boolean;
   ghostChance: number;
   pickup: boolean;
-  /** Random numbers keyed by position, so bars with the same subdivisions get the same notes. */
+  /** Random numbers keyed by position, so every bar of a roll gets the same notes at the same place. */
   roll(key: string): number;
 }
 
@@ -97,8 +95,13 @@ const FILL_VOICES: readonly TrackId[] = ['snare', 'tom1', 'tom2', 'floorTom'];
 function renderBar(src: Bar, plan: Plan, role: { first: boolean; last: boolean; multi: boolean }): Bar {
   const { rng, can } = plan;
   const bar = cloneBar(src, src.id);
+  // Writable tracks start from plain, empty 16ths.
   for (const beat of bar.beats) {
-    for (const t of Object.keys(beat.cells) as TrackId[]) if (can(t)) beat.cells[t] = new Array<Velocity>(beat.div).fill(0);
+    for (const t of Object.keys(beat.cells) as TrackId[]) {
+      if (!can(t)) continue;
+      beat.cells[t] = new Array<Velocity>(CELLS_PER_BEAT).fill(0);
+      beat.splits[t] = new Array<Split>(CELLS_PER_BEAT).fill(null);
+    }
   }
   const vel = (base: number, spread = 6) => clamp(Math.round(base + (rng() * 2 - 1) * spread), 1, 127);
   const put = (beat: number, cell: number, t: TrackId | null, v: Velocity) => {
@@ -111,10 +114,9 @@ function renderBar(src: Bar, plan: Plan, role: { first: boolean; last: boolean; 
   const crash = role.first && can('crash') && rng() < (role.multi ? 0.5 : 0.1);
 
   for (let b = 0; b < fillFrom; b++) {
-    const div = bar.beats[b].div;
-    for (let c = 0; c < div; c++) {
-      const slot = slotOf(div, c);
-      const key = `${b}:${(c * TICKS_PER_BEAT) / div}`;
+    for (let c = 0; c < CELLS_PER_BEAT; c++) {
+      const slot = slotOf(c);
+      const key = `${b}:${c}`;
       const isBackbeat = slot === 'down' && (plan.halfTime ? b === 2 : b === 1 || b === 3);
 
       const keeperOn = plan.rate === 'sixteenth' || slot === 'down' || (plan.rate === 'eighth' && slot === 'and');
@@ -138,8 +140,7 @@ function renderBar(src: Bar, plan: Plan, role: { first: boolean; last: boolean; 
   // Middle bars sometimes nudge one kick so a long pattern doesn't sound copy-pasted.
   if (role.multi && !role.first && !role.last && can('kick') && rng() < 0.35) {
     const b = 1 + Math.floor(rng() * (fillFrom - 1));
-    const div = bar.beats[b].div;
-    const c = 1 + Math.floor(rng() * (div - 1));
+    const c = 1 + Math.floor(rng() * (CELLS_PER_BEAT - 1));
     const cells = bar.beats[b].cells.kick;
     cells[c] = cells[c] > 0 ? 0 : vel(92, 6);
   }
@@ -148,8 +149,7 @@ function renderBar(src: Bar, plan: Plan, role: { first: boolean; last: boolean; 
     const steps: [number, number][] = [];
     const eighths = voices.length > 1 && rng() < 0.5;
     for (let b = fillFrom; b < 4; b++) {
-      const div = bar.beats[b].div;
-      for (let c = 0; c < div; c++) if (!eighths || slotOf(div, c) !== 'weak') steps.push([b, c]);
+      for (let c = 0; c < CELLS_PER_BEAT; c++) if (!eighths || slotOf(c) !== 'weak') steps.push([b, c]);
       if (rng() < 0.5) put(b, 0, 'kick', vel(108, 6));
     }
     // Snare first, then down the toms, getting louder.
@@ -164,7 +164,7 @@ function renderBar(src: Bar, plan: Plan, role: { first: boolean; last: boolean; 
 /**
  * Rewrites the bars at `indices` with one generated groove: kick and snare backbeat, a hi-hat or ride
  * timekeeper, ghost notes, a crash at the start and a fill at the end of a longer pattern.
- * Keeps bar ids and subdivisions; returns `bars` itself when there is nothing to write.
+ * Keeps bar ids; writable tracks come out as plain 16ths. Returns `bars` itself when there is nothing to write.
  */
 export function randomizeBars(bars: readonly Bar[], indices: readonly number[], opts: RandomizeOptions): Bar[] {
   const targets = new Set(indices.filter((i) => i >= 0 && i < bars.length));

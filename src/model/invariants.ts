@@ -1,4 +1,4 @@
-import { SUBDIVISIONS } from './timing';
+import { CELLS_PER_BEAT } from './timing';
 import { TRACK_IDS } from './tracks';
 import type { Project } from './types';
 
@@ -21,13 +21,19 @@ export function projectProblems(p: Project): string[] {
       if (bar.beats.length !== 4) problems.push(`pattern ${pat.name} bar ${bi + 1}: expected 4 beats`);
       bar.beats.forEach((beat, k) => {
         const where = `pattern ${pat.name} bar ${bi + 1} beat ${k + 1}`;
-        if (!SUBDIVISIONS.includes(beat.div)) problems.push(`${where}: bad subdivision ${beat.div}`);
+        const isVelocity = (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 127;
         for (const t of TRACK_IDS) {
           const cells = beat.cells[t];
-          if (!Array.isArray(cells) || cells.length !== beat.div) {
-            problems.push(`${where} ${t}: expected ${beat.div} cells`);
-          } else if (cells.some((v) => !Number.isInteger(v) || v < 0 || v > 127)) {
+          if (!Array.isArray(cells) || cells.length !== CELLS_PER_BEAT) {
+            problems.push(`${where} ${t}: expected ${CELLS_PER_BEAT} cells`);
+          } else if (!cells.every(isVelocity)) {
             problems.push(`${where} ${t}: velocity out of range`);
+          }
+          const splits = beat.splits?.[t];
+          if (!Array.isArray(splits) || splits.length !== CELLS_PER_BEAT) {
+            problems.push(`${where} ${t}: expected ${CELLS_PER_BEAT} splits`);
+          } else if (!splits.every((v) => v === null || isVelocity(v))) {
+            problems.push(`${where} ${t}: split velocity out of range`);
           }
         }
       });

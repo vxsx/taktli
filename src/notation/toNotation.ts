@@ -16,7 +16,6 @@ export interface NotationEvent {
 }
 
 export interface NotationBeat {
-  tuplet: { numNotes: 3 | 6; notesOccupied: 2 | 4 } | null;
   events: NotationEvent[];
 }
 
@@ -29,7 +28,7 @@ export interface NotationBar {
 type Voice = 'hands' | 'feet';
 
 const SIXTEENTHS_TO_DUR: Record<number, NoteDur> = { 1: '16', 2: '8', 3: '8d', 4: 'q' };
-const QUARTER_REST: NotationBeat = { tuplet: null, events: [{ duration: 'q', rest: true, hits: [] }] };
+const QUARTER_REST: NotationBeat = { events: [{ duration: 'q', rest: true, hits: [] }] };
 
 function hitsAt(beat: Beat, cell: number, voice: Voice): NotationHit[] {
   return TRACK_IDS.filter((t) => TRACK_BY_ID[t].notation.voice === voice && beat.cells[t][cell] > 0).map((t) => ({
@@ -39,16 +38,8 @@ function hitsAt(beat: Beat, cell: number, voice: Voice): NotationHit[] {
 }
 
 function beatEvents(beat: Beat, voice: Voice): NotationBeat {
-  const slots = Array.from({ length: beat.div }, (_, i) => hitsAt(beat, i, voice));
-  if (slots.every((s) => s.length === 0)) return { tuplet: null, events: [...QUARTER_REST.events] };
-
-  if (beat.div === 3 || beat.div === 6) {
-    const duration: NoteDur = beat.div === 3 ? '8' : '16';
-    return {
-      tuplet: beat.div === 3 ? { numNotes: 3, notesOccupied: 2 } : { numNotes: 6, notesOccupied: 4 },
-      events: slots.map((hits) => ({ duration, rest: hits.length === 0, hits })),
-    };
-  }
+  const slots = Array.from({ length: 4 }, (_, i) => hitsAt(beat, i, voice));
+  if (slots.every((s) => s.length === 0)) return { events: [...QUARTER_REST.events] };
 
   const onsets = slots.flatMap((hits, i) => (hits.length > 0 ? [i] : []));
   const events: NotationEvent[] = [];
@@ -57,7 +48,7 @@ function beatEvents(beat: Beat, voice: Voice): NotationBeat {
     const end = onsets[k + 1] ?? 4;
     events.push({ duration: SIXTEENTHS_TO_DUR[end - start], rest: false, hits: slots[start] });
   });
-  return { tuplet: null, events };
+  return { events };
 }
 
 export function toNotation(bar: Bar): NotationBar {

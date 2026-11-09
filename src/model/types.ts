@@ -2,16 +2,20 @@ export type TrackId =
   | 'crash' | 'ride' | 'hhOpen' | 'hhClosed' | 'hhPedal' | 'snare'
   | 'crossStick' | 'tom1' | 'tom2' | 'floorTom' | 'kick';
 
-/** Cells per beat: 16ths | 8th triplets | 16th triplets. */
-export type Subdivision = 4 | 3 | 6;
-
 /** Integer 0..127; 0 means "no note". */
 export type Velocity = number;
 
+/** Which 32nd of a 16th cell: 0 is the cell itself (or its left half when split), 1 is the right half. */
+export type Half = 0 | 1;
+
+/** null: the cell is whole. A number: the cell is split into two 32nds and this is the right half (0 = empty). */
+export type Split = Velocity | null;
+
 export interface Beat {
-  div: Subdivision;
-  /** Every array has length === div. */
+  /** Four 16th cells per track; a split cell keeps its left half here. */
   cells: Record<TrackId, Velocity[]>;
+  /** Per track, one entry per cell (length 4). Older app versions ignore this field and read `cells` as plain 16ths. */
+  splits: Record<TrackId, Split[]>;
 }
 
 export interface Bar {
@@ -41,7 +45,7 @@ export interface TrackSettings {
 export type KitName = 'acoustic' | 'electronic';
 
 export interface Project {
-  version: 1;
+  version: 2;
   id: string;
   name: string;
   /** integer 40..240 */

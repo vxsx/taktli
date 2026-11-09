@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createProject } from '../model/factory';
 import * as ops from '../model/ops';
+import { TICKS_PER_BEAT } from '../model/timing';
 import type { TimelineOptions } from '../model/timeline';
 import type { Project, TrackId } from '../model/types';
 import { Scheduler, type PlayheadEvent } from './scheduler';
 
-const TICK_120 = 0.5 / 12;
+const TICK_120 = 0.5 / TICKS_PER_BEAT;
 
 function harness(project: Project, options: Partial<TimelineOptions> = {}) {
   const state = {
@@ -59,7 +60,7 @@ describe('Scheduler', () => {
     const h = harness(p);
     h.s.start();
     h.runTo(0.5);
-    expect(h.played).toEqual([['hhClosed', Number((0.06 + 4.5 * TICK_120).toFixed(4)), 80]]);
+    expect(h.played).toEqual([['hhClosed', Number((0.06 + 3 * TICK_120).toFixed(4)), 80]]);
   });
 
   it('loops a one-bar pattern', () => {
@@ -145,8 +146,9 @@ describe('Scheduler', () => {
     h.state.project = ops.setBpm(h.state.project, 60);
     h.runTo(3.0);
     const times = h.played.map(([, time]) => time);
-    const t11 = 0.06 + 11 * TICK_120;
-    expect(times.slice(0, 4)).toEqual([0.06, Number((t11 + 1 / 12).toFixed(4)), Number((t11 + 13 / 12).toFixed(4)), Number((t11 + 25 / 12).toFixed(4))]);
+    // Ticks 0..7 (beat 1) were already scheduled at 120 BPM; beat 2 starts right after them, then 1 s per beat.
+    const t8 = 0.06 + 8 * TICK_120;
+    expect(times.slice(0, 4)).toEqual([0.06, t8, t8 + 1, t8 + 2].map((t) => Number(t.toFixed(4))));
   });
 
   it('emits a playhead event per tick', () => {
@@ -204,6 +206,6 @@ describe('Scheduler', () => {
     h.s.start();
     h.runTo(1);
     expect(h.played).toEqual([]);
-    expect(h.heads.length).toBeGreaterThan(20);
+    expect(h.heads.length).toBeGreaterThan(10);
   });
 });

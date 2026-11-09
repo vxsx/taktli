@@ -10,19 +10,32 @@ describe('factory', () => {
     const bar = createBar();
     expect(bar.beats).toHaveLength(4);
     for (const beat of bar.beats) {
-      expect(beat.div).toBe(4);
-      for (const t of TRACK_IDS) expect(beat.cells[t]).toEqual([0, 0, 0, 0]);
+      for (const t of TRACK_IDS) {
+        expect(beat.cells[t]).toEqual([0, 0, 0, 0]);
+        expect(beat.splits[t]).toEqual([null, null, null, null]);
+      }
+    }
+  });
+
+  it('keeps the stored shape readable by the previous version', () => {
+    const bar = JSON.parse(JSON.stringify(createBar()));
+    for (const beat of bar.beats) {
+      expect('div' in beat).toBe(false);
+      for (const t of TRACK_IDS) expect(beat.cells[t]).toHaveLength(4);
     }
   });
 
   it('clones bars deeply with a new id', () => {
     const bar = createBar();
     bar.beats[0].cells.kick[0] = 100;
+    bar.beats[0].splits.kick[0] = 40;
     const copy = cloneBar(bar);
     expect(copy.id).not.toBe(bar.id);
     expect(copy.beats).toEqual(bar.beats);
     copy.beats[0].cells.kick[0] = 1;
+    copy.beats[0].splits.kick[0] = 1;
     expect(bar.beats[0].cells.kick[0]).toBe(100);
+    expect(bar.beats[0].splits.kick[0]).toBe(40);
   });
 
   it('creates a valid empty project', () => {
@@ -45,13 +58,15 @@ describe('factory', () => {
     expect(nextPatternName([...az, 'AA'])).toBe('AB');
   });
 
-  it('builds a valid demo project with a triplet fill and a song', () => {
+  it('builds a valid demo project with a 32nd fill, a pickup and a song', () => {
     const p = createDemoProject(5);
     expect(projectProblems(p)).toEqual([]);
     expect(p.bpm).toBe(96);
     expect(p.patterns.map((x) => [x.name, x.bars.length])).toEqual([['A', 2], ['B', 2]]);
     expect(p.song.map((s) => p.patterns.find((x) => x.id === s.patternId)!.name)).toEqual(['A', 'B']);
-    expect(p.patterns[1].bars[1].beats[3].div).toBe(3);
+    expect(p.patterns[1].bars[0].beats[0].splits.snare[3]).toBe(38);
+    expect(p.patterns[1].bars[1].beats[3].cells.snare[0]).toBe(105);
+    expect(p.patterns[1].bars[1].beats[3].splits.snare[0]).toBe(70);
   });
 
   it('gives every id in a project a unique value', () => {
@@ -83,5 +98,12 @@ describe('projectProblems', () => {
     p.bpm = 10;
     const problems = projectProblems(p);
     expect(problems).toHaveLength(4);
+  });
+
+  it('reports wrong split lengths and bad split velocities', () => {
+    const p = createProject();
+    p.patterns[0].bars[0].beats[0].splits.kick = [null, null];
+    p.patterns[0].bars[0].beats[1].splits.snare[2] = 200;
+    expect(projectProblems(p)).toHaveLength(2);
   });
 });

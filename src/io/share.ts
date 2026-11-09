@@ -1,3 +1,4 @@
+import { CELLS_PER_BEAT } from '../model/timing';
 import { TRACK_IDS } from '../model/tracks';
 import type { Beat, Project } from '../model/types';
 import { parseProject } from '../model/validate';
@@ -11,8 +12,7 @@ export class ShareError extends Error {
 
 type CompactPattern = [name: string, swing: number, bars: string[][]];
 
-export interface CompactV1 {
-  v: 1;
+interface CompactFields {
   n: string;
   b: number;
   k: 'a' | 'e';
@@ -22,13 +22,49 @@ export interface CompactV1 {
   s: number[];
 }
 
+/** Links made before 32nds: each beat is a subdivision digit (4, 3 or 6) and then hex velocities. */
+export interface CompactV1 extends CompactFields {
+  v: 1;
+}
+
+/** Each beat, per track: 4 cells as 2 hex digits, then 4 splits as 2 hex digits or `--` for a whole cell. */
+export interface CompactV2 extends CompactFields {
+  v: 2;
+}
+
+const hex2 = (v: number) => v.toString(16).padStart(2, '0');
+const BEAT_V2_LENGTH = TRACK_IDS.length * CELLS_PER_BEAT * 2 * 2;
+
 function encodeBeat(beat: Beat): string {
-  let s = String(beat.div);
-  for (const t of TRACK_IDS) for (const v of beat.cells[t]) s += v.toString(16).padStart(2, '0');
+  let s = '';
+  for (const t of TRACK_IDS) {
+    for (const v of beat.cells[t]) s += hex2(v);
+    for (const v of beat.splits[t]) s += v === null ? '--' : hex2(v);
+  }
   return s;
 }
 
-function decodeBeat(s: unknown): { div: number; cells: Record<string, number[]> } {
+function decodeBeatV2(s: unknown): { cells: Record<string, number[]>; splits: Record<string, (number | null)[]> } {
+  if (typeof s !== 'string' || s.length !== BEAT_V2_LENGTH || !/^([0-9a-f]{2}|--)*$/.test(s)) throw new ShareError();
+  const cells: Record<string, number[]> = {};
+  const splits: Record<string, (number | null)[]> = {};
+  let pos = 0;
+  const next = () => s.slice(pos, (pos += 2));
+  for (const t of TRACK_IDS) {
+    cells[t] = Array.from({ length: CELLS_PER_BEAT }, () => {
+      const c = next();
+      if (c === '--') throw new ShareError();
+      return parseInt(c, 16);
+    });
+    splits[t] = Array.from({ length: CELLS_PER_BEAT }, () => {
+      const c = next();
+      return c === '--' ? null : parseInt(c, 16);
+    });
+  }
+  return { cells, splits };
+}
+
+function decodeBeatV1(s: unknown): { div: number; cells: Record<string, number[]> } {
   if (typeof s !== 'string') throw new ShareError();
   const div = Number(s[0]);
   if (![4, 3, 6].includes(div) || s.length !== 1 + TRACK_IDS.length * div * 2 || !/^[0-9a-f]*$/.test(s.slice(1))) {
@@ -47,9 +83,9 @@ function decodeBeat(s: unknown): { div: number; cells: Record<string, number[]> 
 const mask = (p: Project, key: 'muted' | 'hidden') =>
   TRACK_IDS.reduce((m, t, i) => (p.tracks[t][key] ? m | (1 << i) : m), 0);
 
-export function toCompact(p: Project): CompactV1 {
+export function toCompact(p: Project): CompactV2 {
   return {
-    v: 1,
+    v: 2,
     n: p.name,
     b: p.bpm,
     k: p.kit === 'electronic' ? 'e' : 'a',
@@ -62,8 +98,9 @@ export function toCompact(p: Project): CompactV1 {
 
 export function fromCompact(c: unknown): Project {
   if (typeof c !== 'object' || c === null) throw new ShareError();
-  const o = c as Partial<CompactV1>;
-  if (o.v !== 1 || !Array.isArray(o.p) || !Array.isArray(o.s)) throw new ShareError();
+  const o = c as Partial<CompactV1 | CompactV2>;
+  if ((o.v !== 1 && o.v !== 2) || !Array.isArray(o.p) || !Array.isArray(o.s)) throw new ShareError();
+  const decodeBeat: (s: unknown) => object = o.v === 1 ? decodeBeatV1 : decodeBeatV2;
   const patterns = o.p.map((entry, i) => {
     if (!Array.isArray(entry) || !Array.isArray(entry[2])) throw new ShareError();
     const [name, swing, bars] = entry;

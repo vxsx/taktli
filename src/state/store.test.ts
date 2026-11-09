@@ -73,12 +73,13 @@ describe('history', () => {
     expect(store.getState().past).toHaveLength(HISTORY_LIMIT);
   });
 
-  it('undoes a subdivision change exactly', () => {
+  it('undoes a split exactly', () => {
     const store = setup();
     const pid = store.getState().project.patterns[0].id;
     const before = currentBar(store.getState()).beats[2];
-    store.getState().apply((p) => ops.setBeatDiv(p, pid, 0, 2, 3));
-    store.getState().apply((p) => ops.setBeatDiv(p, pid, 0, 2, 4));
+    store.getState().apply((p) => ops.toggleSplit(p, pid, 0, 2, 'snare', 3));
+    store.getState().apply((p) => ops.setVelocity(p, pid, 0, 2, 'snare', 3, 40, 1));
+    expect(currentBar(store.getState()).beats[2].splits.snare[3]).toBe(40);
     store.getState().undo();
     store.getState().undo();
     expect(currentBar(store.getState()).beats[2]).toEqual(before);

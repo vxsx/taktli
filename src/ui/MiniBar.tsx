@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { TICKS_PER_BEAT } from '../model/timing';
+import { CELLS_PER_BEAT, TICKS_PER_BEAT } from '../model/timing';
 import type { TrackDef } from '../model/tracks';
 import type { Bar, TrackId } from '../model/types';
 import styles from './BarStrip.module.css';
@@ -28,7 +28,7 @@ export const MiniBar = memo(function MiniBar({ bar, tracks, silent }: Props) {
       ))}
       {tracks.map((t, row) =>
         bar.beats.map((beat, b) => {
-          const w = TICKS_PER_BEAT / beat.div;
+          const w = TICKS_PER_BEAT / CELLS_PER_BEAT;
           return beat.cells[t.id].map((v, c) =>
             v > 0 ? (
               <rect

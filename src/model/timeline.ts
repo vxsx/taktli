@@ -1,4 +1,4 @@
-import { cellAtTick, swingOffset, TICKS_PER_BAR, TICKS_PER_BEAT } from './timing';
+import { swingOffset, TICKS_PER_BAR, TICKS_PER_BEAT, velocityAt } from './timing';
 import { TRACK_IDS } from './tracks';
 import type { Bar, Project, TrackId, TrackSettings, Velocity } from './types';
 
@@ -22,7 +22,7 @@ export interface TimelineOptions {
 
 export interface ScheduledNote {
   track: TrackId;
-  /** Integer tick within the bar, 0..47. */
+  /** Integer tick within the bar, 0..31; one tick per 32nd. */
   tick: number;
   /** Swing delay in ticks (fractional). */
   offset: number;
@@ -84,13 +84,14 @@ export function notesAtTick(p: Project, ref: BarRef, tick: number, solo: readonl
   if (!pat || !bar) return [];
   const beat = bar.beats[Math.floor(tick / TICKS_PER_BEAT)];
   if (!beat) return [];
-  const cell = cellAtTick(beat.div, tick % TICKS_PER_BEAT);
-  if (cell < 0) return [];
-  const offset = swingOffset(beat.div, cell, pat.swing);
+  const inBeat = tick % TICKS_PER_BEAT;
+  const cell = inBeat >> 1;
+  const half = (inBeat & 1) as 0 | 1;
+  const offset = swingOffset(cell, half, pat.swing);
   const out: ScheduledNote[] = [];
   for (const track of TRACK_IDS) {
     if (!isAudible(p.tracks, solo, track)) continue;
-    const velocity = beat.cells[track][cell];
+    const velocity = velocityAt(beat, track, cell, half);
     if (velocity > 0) out.push({ track, tick, offset, velocity });
   }
   return out;

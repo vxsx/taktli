@@ -1,5 +1,6 @@
 import { TRACK_IDS } from './tracks';
-import type { Bar, Beat, Pattern, Project, Subdivision, TrackId, TrackSettings, Velocity } from './types';
+import { CELLS_PER_BEAT } from './timing';
+import type { Bar, Beat, Pattern, Project, Split, TrackId, TrackSettings, Velocity } from './types';
 
 export const DEFAULT_BPM = 100;
 
@@ -8,14 +9,20 @@ export function newId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
-export function emptyCells(div: Subdivision): Record<TrackId, Velocity[]> {
+export function emptyCells(): Record<TrackId, Velocity[]> {
   const cells = {} as Record<TrackId, Velocity[]>;
-  for (const id of TRACK_IDS) cells[id] = new Array<Velocity>(div).fill(0);
+  for (const id of TRACK_IDS) cells[id] = new Array<Velocity>(CELLS_PER_BEAT).fill(0);
   return cells;
 }
 
-export function createBeat(div: Subdivision = 4): Beat {
-  return { div, cells: emptyCells(div) };
+export function emptySplits(): Record<TrackId, Split[]> {
+  const splits = {} as Record<TrackId, Split[]>;
+  for (const id of TRACK_IDS) splits[id] = new Array<Split>(CELLS_PER_BEAT).fill(null);
+  return splits;
+}
+
+export function createBeat(): Beat {
+  return { cells: emptyCells(), splits: emptySplits() };
 }
 
 export function createBar(id: string = newId()): Bar {
@@ -25,8 +32,12 @@ export function createBar(id: string = newId()): Bar {
 export function cloneBar(bar: Bar, id: string = newId()): Bar {
   const beats = bar.beats.map((b) => {
     const cells = {} as Record<TrackId, Velocity[]>;
-    for (const t of TRACK_IDS) cells[t] = [...b.cells[t]];
-    return { div: b.div, cells };
+    const splits = {} as Record<TrackId, Split[]>;
+    for (const t of TRACK_IDS) {
+      cells[t] = [...b.cells[t]];
+      splits[t] = [...b.splits[t]];
+    }
+    return { cells, splits };
   }) as Bar['beats'];
   return { id, beats };
 }
@@ -46,7 +57,7 @@ export function defaultTrackSettings(): Record<TrackId, TrackSettings> {
 
 export function createProject(name = 'Untitled beat', now = Date.now()): Project {
   return {
-    version: 1,
+    version: 2,
     id: newId(),
     name,
     bpm: DEFAULT_BPM,
@@ -106,14 +117,22 @@ export function createDemoProject(now = Date.now()): Project {
   const a = p.patterns[0];
   a.bars = [rockBar(true), rockBar(false)];
 
+  // A ghost pickup a 32nd before the backbeat on 2.
+  const groove = rockBar(false);
+  groove.beats[0].splits.snare[3] = 38;
+
+  // Beat 4 fill: a 32nd double on the snare, then down the toms.
   const fill = rockBar(false);
-  const triplet = createBeat(3);
-  triplet.cells.snare = [105, 0, 0];
-  triplet.cells.tom1 = [0, 100, 0];
-  triplet.cells.floorTom = [0, 0, 112];
-  fill.beats[3] = triplet;
+  const last = createBeat();
+  last.cells.snare[0] = 105;
+  last.splits.snare[0] = 70;
+  last.cells.tom1[1] = 100;
+  last.cells.tom2[2] = 104;
+  last.cells.floorTom[3] = 112;
+  last.cells.kick[0] = 110;
+  fill.beats[3] = last;
   const b = createPattern('B');
-  b.bars = [rockBar(false), fill];
+  b.bars = [groove, fill];
   p.patterns.push(b);
 
   p.song = [

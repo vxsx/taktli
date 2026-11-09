@@ -52,17 +52,22 @@ describe('randomizeBars', () => {
     expect(distinct.size).toBeGreaterThan(20);
   });
 
-  it('keeps every bar valid, including triplet beats', () => {
+  it('keeps every bar valid', () => {
     for (const seed of SEEDS) {
       const p = createProject();
-      const src = bars(4);
-      src[1].beats[3] = createBeat(3);
-      src[3].beats[2] = createBeat(6);
-      src[3].beats[3] = createBeat(3);
-      p.patterns[0].bars = randomizeBars(src, all(4), { tracks: ALL, rng: mulberry32(seed) });
+      p.patterns[0].bars = randomizeBars(bars(4), all(4), { tracks: ALL, rng: mulberry32(seed) });
       expect(projectProblems(p), `seed ${seed}`).toEqual([]);
-      expect(p.patterns[0].bars[3].beats.map((b) => b.div)).toEqual([4, 4, 6, 3]);
     }
+  });
+
+  it('writes plain 16ths and merges splits on writable tracks only', () => {
+    const src = bars(1);
+    src[0].beats[1] = createBeat();
+    src[0].beats[1].splits.snare[3] = 40;
+    src[0].beats[1].splits.crossStick[2] = 50;
+    const [bar] = randomizeBars(src, [0], { tracks: DEFAULT_VISIBLE, rng: mulberry32(7) });
+    expect(bar.beats.every((b) => b.splits.snare.every((v) => v === null))).toBe(true);
+    expect(bar.beats[1].splits.crossStick[2]).toBe(50);
   });
 
   it('keeps bar ids and leaves bars it was not asked to change alone', () => {

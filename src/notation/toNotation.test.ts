@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createBar, createBeat } from '../model/factory';
+import { createBar } from '../model/factory';
 import type { Bar, TrackId } from '../model/types';
 import { notationMarks, toNotation } from './toNotation';
 
@@ -37,29 +37,6 @@ describe('toNotation', () => {
     expect(durs(n.hands[2])).toEqual(['8dr', '16']);
   });
 
-  it('writes 8th-triplet beats as a 3:2 tuplet', () => {
-    const b = createBar();
-    b.beats[3] = createBeat(3);
-    b.beats[3].cells.snare = [100, 0, 90];
-    const n = toNotation(b);
-    expect(n.hands[3].tuplet).toEqual({ numNotes: 3, notesOccupied: 2 });
-    expect(durs(n.hands[3])).toEqual(['8', '8r', '8']);
-  });
-
-  it('writes 16th-triplet beats as a 6:4 tuplet', () => {
-    const b = createBar();
-    b.beats[0] = createBeat(6);
-    b.beats[0].cells.ride = [90, 90, 90, 90, 90, 90];
-    const n = toNotation(b);
-    expect(n.hands[0].tuplet).toEqual({ numNotes: 6, notesOccupied: 4 });
-    expect(durs(n.hands[0])).toEqual(['16', '16', '16', '16', '16', '16']);
-  });
-
-  it('writes an empty triplet beat as a plain quarter rest', () => {
-    const b = createBar();
-    b.beats[2] = createBeat(3);
-    expect(toNotation(b).hands[2]).toEqual({ tuplet: null, events: [{ duration: 'q', rest: true, hits: [] }] });
-  });
 });
 
 describe('notationMarks', () => {

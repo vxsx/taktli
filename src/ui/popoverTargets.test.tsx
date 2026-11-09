@@ -8,7 +8,6 @@ vi.mock('../audio/transport', () => ({
 
 import { createDemoProject } from '../model/factory';
 import { appStore } from '../state/store';
-import { BeatHeader } from './BeatHeader';
 import { Popover, isOverlayOpen } from './Popover';
 import { TrackLabel } from './TrackLabel';
 
@@ -18,15 +17,6 @@ beforeEach(() => appStore.getState().loadProject(createDemoProject()));
 afterEach(cleanup);
 
 describe('popover edits target the bar they were opened on', () => {
-  it('changes the subdivision of the bar shown when the beat picker opened', () => {
-    render(<BeatHeader />);
-    fireEvent.click(screen.getByRole('button', { name: /^Beat 4:/ }));
-    act(() => appStore.getState().setUi({ barIndex: 1 })); // follow moved on while the picker was open
-    fireEvent.click(screen.getByRole('menuitem', { name: '8th triplets' }));
-    expect(pattern().bars[0].beats[3].div).toBe(3);
-    expect(pattern().bars[1].beats[3].div).toBe(4);
-  });
-
   it('clears the row in the bar shown when the track menu opened', () => {
     render(<TrackLabel track="kick" />);
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Kick' }));

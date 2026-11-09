@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoProject } from './factory';
 import { projectProblems } from './invariants';
-import { parseBar, parseProject } from './validate';
+import { parseBar, parseProject, type ParseReport } from './validate';
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
@@ -17,14 +17,32 @@ describe('parseProject', () => {
     }
   });
 
-  it('repairs cells, subdivisions and velocities', () => {
+  it('repairs cells and velocities, and reads an unknown subdivision as 16ths', () => {
     const raw = clone(createDemoProject());
     (raw.patterns[0].bars[0].beats[0].cells as Record<string, unknown>).kick = [500, -4, 'x'];
-    (raw.patterns[0].bars[0].beats[1] as { div: number }).div = 5;
+    (raw.patterns[0].bars[0].beats[1] as unknown as { div: number }).div = 5;
     const p = parseProject(raw)!;
     expect(p.patterns[0].bars[0].beats[0].cells.kick).toEqual([127, 0, 0, 0]);
-    expect(p.patterns[0].bars[0].beats[1].div).toBe(4);
+    expect(p.patterns[0].bars[0].beats[1].cells.snare).toEqual(createDemoProject().patterns[0].bars[0].beats[1].cells.snare);
     expect(projectProblems(p)).toEqual([]);
+  });
+
+  it('repairs malformed splits', () => {
+    const raw = clone(createDemoProject());
+    const splits = raw.patterns[0].bars[0].beats[0].splits as Record<string, unknown>;
+    splits.snare = ['x', 300, null, -1, 5];
+    splits.kick = 'nope';
+    const p = parseProject(raw)!;
+    expect(p.patterns[0].bars[0].beats[0].splits.snare).toEqual([null, 127, null, 0]);
+    expect(p.patterns[0].bars[0].beats[0].splits.kick).toEqual([null, null, null, null]);
+    expect(projectProblems(p)).toEqual([]);
+  });
+
+  it('writes version 2 and reads a beat without a subdivision as 16ths', () => {
+    const p = parseProject({ version: 1, patterns: [{ bars: [{ beats: [{ cells: { kick: [100, 0, 90, 0] } }] }] }] })!;
+    expect(p.version).toBe(2);
+    expect(p.patterns[0].bars[0].beats[0].cells.kick).toEqual([100, 0, 90, 0]);
+    expect(p.patterns[0].bars[0].beats[0].splits.kick).toEqual([null, null, null, null]);
   });
 
   it('fills defaults for missing fields', () => {
@@ -78,10 +96,27 @@ describe('parseProject', () => {
 
 describe('parseBar', () => {
   it('builds a full bar from partial data', () => {
-    const bar = parseBar({ id: 'b1', beats: [{ div: 3, cells: { snare: [0, 90, 0] } }] });
+    const bar = parseBar({ id: 'b1', beats: [{ cells: { snare: [0, 90, 0, 0] }, splits: { snare: [null, 40, null, null] } }] });
     expect(bar.id).toBe('b1');
-    expect(bar.beats[0].div).toBe(3);
-    expect(bar.beats[0].cells.snare).toEqual([0, 90, 0]);
+    expect(bar.beats[0].cells.snare).toEqual([0, 90, 0, 0]);
+    expect(bar.beats[0].splits.snare).toEqual([null, 40, null, null]);
     expect(bar.beats[3].cells.kick).toEqual([0, 0, 0, 0]);
+    expect(bar.beats[3].splits.kick).toEqual([null, null, null, null]);
+  });
+
+  it('converts triplet beats to 32nds and reports it', () => {
+    const report: ParseReport = { tripletsConverted: false };
+    const bar = parseBar({ id: 'b1', beats: [{ div: 3, cells: { snare: [90, 80, 70] } }] }, undefined, report);
+    expect(bar.beats[0].cells.snare).toEqual([90, 0, 0, 0]);
+    expect(bar.beats[0].splits.snare).toEqual([null, 80, 70, null]);
+    expect(bar.beats[0].splits.kick).toEqual([null, null, null, null]);
+    expect(report.tripletsConverted).toBe(true);
+  });
+
+  it('does not report empty triplet beats', () => {
+    const report: ParseReport = { tripletsConverted: false };
+    const bar = parseBar({ id: 'b1', beats: [{ div: 6, cells: { snare: [0, 0, 0, 0, 0, 0] } }] }, undefined, report);
+    expect(bar.beats[0].cells.snare).toEqual([0, 0, 0, 0]);
+    expect(report.tripletsConverted).toBe(false);
   });
 });

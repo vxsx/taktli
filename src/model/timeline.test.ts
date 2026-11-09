@@ -95,16 +95,20 @@ describe('notes', () => {
     const pid = p.patterns[0].id;
     p = ops.setVelocity(p, pid, 0, 0, 'hhClosed', 1, 80);
     p = ops.setSwing(p, pid, 100);
-    expect(notesAtTick(p, { patternId: pid, barIndex: 0, stepIndex: -1 }, 3)).toEqual([
-      { track: 'hhClosed', tick: 3, offset: 1.5, velocity: 80 },
+    expect(notesAtTick(p, { patternId: pid, barIndex: 0, stepIndex: -1 }, 2)).toEqual([
+      { track: 'hhClosed', tick: 2, offset: 1, velocity: 80 },
     ]);
   });
 
-  it('reads triplet beats on their own ticks', () => {
-    const p = createDemoProject();
-    const ref = { patternId: p.patterns[1].id, barIndex: 1, stepIndex: -1 };
-    expect(notesAtTick(p, ref, 40)).toEqual([{ track: 'tom1', tick: 40, offset: 0, velocity: 100 }]);
-    expect(notesAtTick(p, ref, 39)).toEqual([]);
+  it('reads right halves on odd ticks with half the swing', () => {
+    let p = createProject();
+    const pid = p.patterns[0].id;
+    p = ops.toggleSplit(p, pid, 0, 1, 'snare', 3);
+    p = ops.setVelocity(p, pid, 0, 1, 'snare', 3, 40, 1);
+    p = ops.setSwing(p, pid, 100);
+    const ref = { patternId: pid, barIndex: 0, stepIndex: -1 };
+    expect(notesAtTick(p, ref, 15)).toEqual([{ track: 'snare', tick: 15, offset: 0.5, velocity: 40 }]);
+    expect(notesAtTick(p, ref, 14)).toEqual([]);
   });
 
   it('skips muted tracks', () => {

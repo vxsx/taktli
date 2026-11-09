@@ -1,42 +1,39 @@
-import type { Subdivision, Velocity } from './types';
+import type { Beat, Half, Split, TrackId, Velocity } from './types';
 
-export const TICKS_PER_BEAT = 12;
+/** One tick is a 32nd note: each 16th cell has a tick for itself and one for its right half. */
+export const TICKS_PER_BEAT = 8;
 export const BEATS_PER_BAR = 4;
 export const TICKS_PER_BAR = TICKS_PER_BEAT * BEATS_PER_BAR;
-export const SUBDIVISIONS: readonly Subdivision[] = [4, 3, 6];
+export const CELLS_PER_BEAT = 4;
 export const DEFAULT_VELOCITY = 100;
+/** New notes in a right half start as ghost notes. */
+export const GHOST_VELOCITY = 40;
 export const ACCENT_MIN = 110;
 export const GHOST_MAX = 45;
-/** Swing 100% delays a 16th off-beat by this many ticks (MPC "75%"). */
-export const MAX_SWING_TICKS = 1.5;
+/** Swing 100% delays a 16th off-beat by this many ticks, an 8th of a beat (MPC "75%"). */
+export const MAX_SWING_TICKS = 1;
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
-export function ticksPerCell(div: Subdivision): number {
-  return TICKS_PER_BEAT / div;
+export function tickOf(beat: number, cell: number, half: Half): number {
+  return beat * TICKS_PER_BEAT + cell * 2 + half;
 }
 
-export function cellTick(beatIndex: number, div: Subdivision, cell: number): number {
-  return beatIndex * TICKS_PER_BEAT + cell * ticksPerCell(div);
+/** A cell's velocity, or its right half's; a whole cell has no right half. */
+export function velocityAt(beat: Beat, track: TrackId, cell: number, half: Half): Velocity {
+  return half === 0 ? beat.cells[track][cell] : (beat.splits[track][cell] ?? 0);
 }
 
-/** Index of the cell starting exactly at `tickInBeat`, or -1. */
-export function cellAtTick(div: Subdivision, tickInBeat: number): number {
-  const t = ticksPerCell(div);
-  return tickInBeat % t === 0 ? tickInBeat / t : -1;
-}
-
-/** Index of the cell whose span contains `tickInBeat` (used for the playhead). */
-export function cellContainingTick(div: Subdivision, tickInBeat: number): number {
-  return Math.floor(tickInBeat / ticksPerCell(div));
-}
-
-/** Swing delay in ticks for a cell. Only 16th off-beats (cells 1 and 3) swing. */
-export function swingOffset(div: Subdivision, cell: number, swing: number): number {
-  if (div !== 4 || cell % 2 === 0) return 0;
-  return (MAX_SWING_TICKS * clamp(swing, 0, 100)) / 100;
+/**
+ * Swing delay in ticks. Off-beat 16ths (cells 1 and 3) move later by the swing amount. A right half sits midway
+ * between its cell's start and the next cell's, and exactly one of those two moves, so it moves by half as much.
+ */
+export function swingOffset(cell: number, half: Half, swing: number): number {
+  const s = (MAX_SWING_TICKS * clamp(swing, 0, 100)) / 100;
+  if (half === 1) return s / 2;
+  return cell % 2 === 1 ? s : 0;
 }
 
 export function clampVelocity(v: number): Velocity {
@@ -47,16 +44,16 @@ export function velocityToGain(v: Velocity): number {
   return Math.pow(clampVelocity(v) / 127, 1.6);
 }
 
-/** Re-grid one track's cells of a beat; each note moves to the nearest new cell, louder wins collisions. */
-export function convertCells(values: readonly Velocity[], from: Subdivision, to: Subdivision): Velocity[] {
-  if (from === to) return values.slice();
-  const out = new Array<Velocity>(to).fill(0);
-  const fromStep = ticksPerCell(from);
-  const toStep = ticksPerCell(to);
-  values.forEach((v, i) => {
-    if (v <= 0) return;
-    const target = Math.min(to - 1, Math.round((i * fromStep) / toStep));
-    out[target] = Math.max(out[target], v);
+/** One track's notes from an old triplet beat, moved to the nearest 32nds; the louder note wins a collision. */
+export function convertTriplets(values: readonly Velocity[], div: 3 | 6): { cells: Velocity[]; splits: Split[] } {
+  const cells = new Array<Velocity>(CELLS_PER_BEAT).fill(0);
+  const splits = new Array<Split>(CELLS_PER_BEAT).fill(null);
+  values.slice(0, div).forEach((v, i) => {
+    if (!(v > 0)) return;
+    const slot = Math.round((i * TICKS_PER_BEAT) / div);
+    const cell = slot >> 1;
+    if (slot & 1) splits[cell] = Math.max(splits[cell] ?? 0, v);
+    else cells[cell] = Math.max(cells[cell], v);
   });
-  return out;
+  return { cells, splits };
 }

@@ -1,9 +1,9 @@
 import { produce, type Draft } from 'immer';
 import { cloneBar, createBar, createPattern, newId, nextPatternName } from './factory';
 import { randomizeBars as generate, type Rng } from './randomize';
-import { clamp, clampVelocity, convertCells } from './timing';
+import { clamp, clampVelocity } from './timing';
 import { TRACK_IDS } from './tracks';
-import type { Bar, KitName, Pattern, Project, Subdivision, TrackId, Velocity } from './types';
+import type { Bar, Beat, Half, KitName, Pattern, Project, Split, TrackId, Velocity } from './types';
 
 export const MIN_BPM = 40;
 export const MAX_BPM = 240;
@@ -31,30 +31,42 @@ function moveItem<T>(arr: T[], from: number, to: number): void {
 
 // ---- notes ----
 
+/** Sets a cell's velocity, or (with `half` 1) its right half's; a right-half edit on a whole cell does nothing. */
 export function setVelocity(
   p: Project, patternId: string, barIndex: number, beat: number, track: TrackId, cell: number, velocity: Velocity,
+  half: Half = 0,
 ): Project {
   const v = clampVelocity(velocity);
   return editBar(p, patternId, barIndex, (bar) => {
-    const cells = bar.beats[beat]?.cells[track];
-    if (cells && cell >= 0 && cell < cells.length && cells[cell] !== v) cells[cell] = v;
+    const b = bar.beats[beat];
+    if (!b || cell < 0 || cell >= b.cells[track].length) return;
+    if (half === 0) {
+      if (b.cells[track][cell] !== v) b.cells[track][cell] = v;
+    } else {
+      const split = b.splits[track][cell];
+      if (split !== null && split !== v) b.splits[track][cell] = v;
+    }
   });
 }
 
-export function setBeatDiv(p: Project, patternId: string, barIndex: number, beat: number, div: Subdivision): Project {
+/** Splits a whole cell into two 32nds (the right half starts empty), or merges a split one, dropping its right half. */
+export function toggleSplit(p: Project, patternId: string, barIndex: number, beat: number, track: TrackId, cell: number): Project {
   return editBar(p, patternId, barIndex, (bar) => {
-    const b = bar.beats[beat];
-    if (!b || b.div === div) return;
-    for (const t of TRACK_IDS) b.cells[t] = convertCells(b.cells[t], b.div, div);
-    b.div = div;
+    const splits = bar.beats[beat]?.splits[track];
+    if (!splits || cell < 0 || cell >= splits.length) return;
+    splits[cell] = splits[cell] === null ? 0 : null;
   });
+}
+
+/** Empties one track of a beat and merges its split cells. */
+function clearTrack(b: Draft<Beat>, track: TrackId): void {
+  if (b.cells[track].some((v) => v !== 0)) b.cells[track] = b.cells[track].map(() => 0);
+  if (b.splits[track].some((v) => v !== null)) b.splits[track] = b.splits[track].map((): Split => null);
 }
 
 export function clearRow(p: Project, patternId: string, barIndex: number, track: TrackId): Project {
   return editBar(p, patternId, barIndex, (bar) => {
-    for (const b of bar.beats) {
-      if (b.cells[track].some((v) => v !== 0)) b.cells[track] = new Array<Velocity>(b.div).fill(0);
-    }
+    for (const b of bar.beats) clearTrack(b, track);
   });
 }
 
@@ -62,11 +74,7 @@ export function clearRow(p: Project, patternId: string, barIndex: number, track:
 
 export function clearBar(p: Project, patternId: string, barIndex: number): Project {
   return editBar(p, patternId, barIndex, (bar) => {
-    for (const b of bar.beats) {
-      for (const t of TRACK_IDS) {
-        if (b.cells[t].some((v) => v !== 0)) b.cells[t] = new Array<Velocity>(b.div).fill(0);
-      }
-    }
+    for (const b of bar.beats) for (const t of TRACK_IDS) clearTrack(b, t);
   });
 }
 

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import type { PlayheadEvent } from '../audio/scheduler';
 import { isAudible } from '../model/timeline';
-import { cellContainingTick, TICKS_PER_BEAT } from '../model/timing';
+import { TICKS_PER_BEAT } from '../model/timing';
 import { TRACKS } from '../model/tracks';
 import { currentBar, useApp, type AppState } from '../state/store';
 import { BeatHeader } from './BeatHeader';
@@ -24,8 +24,10 @@ export function Grid() {
   const selectPlaying = useCallback((ph: PlayheadEvent, s: AppState) => {
     if (ph.ref.patternId !== s.ui.patternId || ph.ref.barIndex !== s.ui.barIndex) return null;
     const beat = Math.floor(ph.tick / TICKS_PER_BEAT);
-    const div = currentBar(s).beats[beat].div;
-    return `[data-beat="${beat}"][data-cell="${cellContainingTick(div, ph.tick % TICKS_PER_BEAT)}"]`;
+    const inBeat = ph.tick % TICKS_PER_BEAT;
+    const at = `[data-beat="${beat}"][data-cell="${inBeat >> 1}"]`;
+    // A whole cell lights up for both of its 32nds; a split cell lights the half that is playing.
+    return `${at}:not([data-half]), ${at}[data-half="${inBeat & 1}"]`;
   }, []);
   usePlayheadMarker(rows, styles.playing, selectPlaying);
 

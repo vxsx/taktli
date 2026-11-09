@@ -61,12 +61,6 @@ test('Random rolls a groove into the bar and its chip shows it', async ({ page }
   await expect(chip.locator('[data-note="kick"]').first()).toBeVisible();
 });
 
-test('switches a beat to triplets', async ({ page }) => {
-  await page.getByRole('button', { name: /^Beat 4:/ }).click();
-  await page.getByRole('menuitem', { name: '8th triplets' }).click();
-  await expect(page.locator('[data-track="snare"][data-beat="3"]')).toHaveCount(3);
-});
-
 test('arranges a song on the timeline @desktop', async ({ page }) => {
   await page.getByRole('radio', { name: 'Song' }).click();
   const blocks = page.getByRole('button', { name: /^Block \d+:/ });
