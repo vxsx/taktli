@@ -86,6 +86,31 @@ describe('exportMidi', () => {
     expect(events[0]).toEqual({ time: 180, status: 0x99, data: [42, 80] });
   });
 
+  it("ends a note at the same track's next 32nd", () => {
+    let p = createProject();
+    const pid = p.patterns[0].id;
+    p = ops.setVelocity(p, pid, 0, 0, 'snare', 0, 100);
+    p = ops.toggleSplit(p, pid, 0, 0, 'snare', 0);
+    p = ops.setVelocity(p, pid, 0, 0, 'snare', 0, 40, 1);
+    const { events } = readMidi(exportMidi(p, { patternId: pid }));
+    expect(events).toEqual([
+      { time: 0, status: 0x99, data: [38, 100] },
+      { time: 60, status: 0x89, data: [38, 64] },
+      { time: 60, status: 0x99, data: [38, 40] },
+      { time: 180, status: 0x89, data: [38, 64] },
+    ]);
+  });
+
+  it('moves right halves by half the swing', () => {
+    let p = createProject();
+    const pid = p.patterns[0].id;
+    p = ops.toggleSplit(p, pid, 0, 0, 'snare', 0);
+    p = ops.setVelocity(p, pid, 0, 0, 'snare', 0, 40, 1);
+    p = ops.setSwing(p, pid, 100);
+    const { events } = readMidi(exportMidi(p, { patternId: pid }));
+    expect(events[0]).toEqual({ time: 90, status: 0x99, data: [38, 40] });
+  });
+
   it('excludes muted tracks', () => {
     const { p, pid } = simple();
     const { events } = readMidi(exportMidi(ops.setTrackMuted(p, 'kick', true), { patternId: pid }));

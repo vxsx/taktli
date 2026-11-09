@@ -4,7 +4,7 @@ import { TRACK_BY_ID } from '../model/tracks';
 import type { Project } from '../model/types';
 
 export const PPQ = 480;
-const MIDI_PER_GRID_TICK = PPQ / TICKS_PER_BEAT; // 40
+const MIDI_PER_GRID_TICK = PPQ / TICKS_PER_BEAT; // 60, a 32nd
 const BAR_LENGTH = TICKS_PER_BAR * MIDI_PER_GRID_TICK; // 1920
 const NOTE_LENGTH = PPQ / 4;
 
@@ -33,15 +33,26 @@ export function exportMidi(p: Project, o: { patternId: string }): Uint8Array<Arr
     loopBar: false,
   });
 
-  const events: TimedEvent[] = [];
+  const hits: { time: number; note: number; velocity: number }[] = [];
   refs.forEach((ref, k) => {
     for (const n of barNotes(p, ref)) {
       const time = k * BAR_LENGTH + Math.round((n.tick + n.offset) * MIDI_PER_GRID_TICK);
-      const note = TRACK_BY_ID[n.track].midi;
-      events.push({ time, order: 1, bytes: [0x99, note, Math.max(1, n.velocity)] });
-      events.push({ time: time + NOTE_LENGTH, order: 0, bytes: [0x89, note, 0x40] });
+      hits.push({ time, note: TRACK_BY_ID[n.track].midi, velocity: Math.max(1, n.velocity) });
     }
   });
+  hits.sort((a, b) => a.time - b.time);
+
+  // A note ends after NOTE_LENGTH, or earlier when the same drum plays again (a 32nd later, say), so it never overlaps itself.
+  const events: TimedEvent[] = [];
+  const nextOn = new Map<number, number>(); // note → time it plays next, walking backwards
+  for (let i = hits.length - 1; i >= 0; i--) {
+    const h = hits[i];
+    const next = nextOn.get(h.note);
+    const end = Math.min(h.time + NOTE_LENGTH, next !== undefined && next > h.time ? next : Infinity);
+    events.push({ time: h.time, order: 1, bytes: [0x99, h.note, h.velocity] });
+    events.push({ time: end, order: 0, bytes: [0x89, h.note, 0x40] });
+    nextOn.set(h.note, h.time);
+  }
   events.sort((a, b) => a.time - b.time || a.order - b.order);
 
   const name = Array.from(new TextEncoder().encode(p.name));

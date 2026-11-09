@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { CELLS_PER_BEAT, TICKS_PER_BEAT } from '../model/timing';
+import { TICKS_PER_BEAT } from '../model/timing';
 import type { TrackDef } from '../model/tracks';
 import type { Bar, TrackId } from '../model/types';
 import styles from './BarStrip.module.css';
@@ -27,23 +27,28 @@ export const MiniBar = memo(function MiniBar({ bar, tracks, silent }: Props) {
         <rect key={b} className={b % 2 ? styles.miniBeatAlt : styles.miniBeat} data-mini-beat={b} x={b * TICKS_PER_BEAT} width={TICKS_PER_BEAT} height={height} />
       ))}
       {tracks.map((t, row) =>
-        bar.beats.map((beat, b) => {
-          const w = TICKS_PER_BEAT / CELLS_PER_BEAT;
-          return beat.cells[t.id].map((v, c) =>
-            v > 0 ? (
-              <rect
-                key={`${t.id}-${b}-${c}`}
-                data-note={t.id}
-                x={b * TICKS_PER_BEAT + c * w + GAP / 2}
-                y={top + row * ROW + GAP / 2}
-                width={w - GAP}
-                height={ROW - GAP}
-                fill={t.color}
-                opacity={(0.35 + (0.65 * v) / 127) * (silent.has(t.id) ? 0.4 : 1)}
-              />
-            ) : null,
-          );
-        }),
+        bar.beats.flatMap((beat, b) =>
+          beat.cells[t.id].flatMap((left, c) => {
+            // A whole cell spans two ticks (32nds); each half of a split cell spans one.
+            const right = beat.splits[t.id][c];
+            const marks: [x: number, w: number, v: number][] =
+              right === null ? [[c * 2, 2, left]] : [[c * 2, 1, left], [c * 2 + 1, 1, right]];
+            return marks.map(([x, w, v]) =>
+              v > 0 ? (
+                <rect
+                  key={`${t.id}-${b}-${x}`}
+                  data-note={t.id}
+                  x={b * TICKS_PER_BEAT + x + GAP / 2}
+                  y={top + row * ROW + GAP / 2}
+                  width={w - GAP}
+                  height={ROW - GAP}
+                  fill={t.color}
+                  opacity={(0.35 + (0.65 * v) / 127) * (silent.has(t.id) ? 0.4 : 1)}
+                />
+              ) : null,
+            );
+          }),
+        ),
       )}
     </svg>
   );

@@ -7,7 +7,7 @@ vi.mock('../audio/transport', () => ({
 }));
 
 import { createDemoProject } from '../model/factory';
-import { setTrackHidden, setVelocity } from '../model/ops';
+import { setTrackHidden, setVelocity, toggleSplit } from '../model/ops';
 import { TRACK_IDS } from '../model/tracks';
 import { toggleSolo } from '../state/actions';
 import { appStore, currentBar, currentPattern } from '../state/store';
@@ -54,6 +54,15 @@ describe('BarStrip', () => {
     const before = kicks();
     act(() => appStore.getState().apply((p) => setVelocity(p, p.patterns[0].id, 0, 3, 'kick', 3, 100)));
     expect(kicks()).toBe(before + 1);
+  });
+
+  it('draws a right-half note at its 32nd position, half as wide', () => {
+    act(() => appStore.getState().apply((p) => setVelocity(toggleSplit(p, p.patterns[0].id, 0, 0, 'snare', 3), p.patterns[0].id, 0, 0, 'snare', 3, 38, 1)));
+    render(<BarStrip />);
+    const snares = [...screen.getByRole('button', { name: 'Bar 1' }).querySelectorAll('[data-note="snare"]')];
+    const pickup = snares.find((r) => Number(r.getAttribute('x')) < 8)!;
+    expect(Number(pickup.getAttribute('x'))).toBeCloseTo(7.3, 5);
+    expect(Number(pickup.getAttribute('width'))).toBeCloseTo(0.4, 5);
   });
 
   it('dims the notes of tracks that will not play in the miniatures', () => {
