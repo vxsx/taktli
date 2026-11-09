@@ -6,6 +6,8 @@ import styles from './BarStrip.module.css';
 
 const ROW = 4;
 const GAP = 0.6;
+/** Horizontal gap: a fifth of a 16th step (2 ticks wide), the same proportion as before 32nds. */
+const GAP_X = 0.4;
 /** Fewer rows than this are centred instead of stretched into tall blocks. */
 const MIN_ROWS = 5;
 
@@ -38,9 +40,9 @@ export const MiniBar = memo(function MiniBar({ bar, tracks, silent }: Props) {
                 <rect
                   key={`${t.id}-${b}-${x}`}
                   data-note={t.id}
-                  x={b * TICKS_PER_BEAT + x + GAP / 2}
+                  x={b * TICKS_PER_BEAT + x + GAP_X / 2}
                   y={top + row * ROW + GAP / 2}
-                  width={w - GAP}
+                  width={w - GAP_X}
                   height={ROW - GAP}
                   fill={t.color}
                   opacity={(0.35 + (0.65 * v) / 127) * (silent.has(t.id) ? 0.4 : 1)}
