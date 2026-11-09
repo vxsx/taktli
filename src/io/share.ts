@@ -1,7 +1,7 @@
 import { CELLS_PER_BEAT } from '../model/timing';
 import { TRACK_IDS } from '../model/tracks';
 import type { Beat, Project } from '../model/types';
-import { parseProject } from '../model/validate';
+import { parseProject, type ParseReport } from '../model/validate';
 
 export class ShareError extends Error {
   constructor(message = 'This link is invalid or damaged') {
@@ -96,7 +96,7 @@ export function toCompact(p: Project): CompactV2 {
   };
 }
 
-export function fromCompact(c: unknown): Project {
+export function fromCompact(c: unknown, report?: ParseReport): Project {
   if (typeof c !== 'object' || c === null) throw new ShareError();
   const o = c as Partial<CompactV1 | CompactV2>;
   if ((o.v !== 1 && o.v !== 2) || !Array.isArray(o.p) || !Array.isArray(o.s)) throw new ShareError();
@@ -124,7 +124,7 @@ export function fromCompact(c: unknown): Project {
     tracks,
     patterns,
     song: o.s.map((i) => ({ patternId: `p${i}` })),
-  });
+  }, Date.now(), report);
   if (!project) throw new ShareError();
   return project;
 }
@@ -157,10 +157,10 @@ export async function encodeShare(p: Project): Promise<string> {
   return toBase64Url(await pipe(new TextEncoder().encode(json), new CompressionStream('deflate-raw')));
 }
 
-export async function decodeShare(payload: string): Promise<Project> {
+export async function decodeShare(payload: string, report?: ParseReport): Promise<Project> {
   try {
     const json = new TextDecoder().decode(await pipe(fromBase64Url(payload), new DecompressionStream('deflate-raw')));
-    return fromCompact(JSON.parse(json));
+    return fromCompact(JSON.parse(json), report);
   } catch (e) {
     if (e instanceof ShareError) throw e;
     throw new ShareError();

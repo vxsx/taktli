@@ -1,4 +1,4 @@
-import { parseBar, parseProject } from '../model/validate';
+import { parseBar, parseProject, type ParseReport } from '../model/validate';
 import type { Bar, Project } from '../model/types';
 
 export interface KeyValueStore {
@@ -132,6 +132,26 @@ export class ProjectStorage {
     } catch {
       // ignore
     }
+  }
+
+  /**
+   * Re-saves, in today's shape, every listed project whose stored data still had triplet notes (they move to the
+   * nearest 32nds), so the conversion happens once. Returns how many were converted.
+   */
+  resaveConverted(): number {
+    let converted = 0;
+    for (const meta of this.readIndex()) {
+      const report: ParseReport = { tripletsConverted: false };
+      const p = parseProject(this.read(KEYS.project(meta.id)), Date.now(), report);
+      if (!p || !report.tripletsConverted) continue;
+      try {
+        this.write(KEYS.project(meta.id), { ...p, id: meta.id });
+        converted++;
+      } catch {
+        // can't persist; the project still opens converted, and this is retried next launch
+      }
+    }
+    return converted;
   }
 
   /** Number of index entries whose stored project is missing or unreadable. */

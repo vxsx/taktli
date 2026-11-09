@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createDemoProject } from '../model/factory';
 import { projectProblems } from '../model/invariants';
 import * as ops from '../model/ops';
+import { TRACK_IDS } from '../model/tracks';
 import type { Project } from '../model/types';
-import { decodeShare, encodeShare, fromCompact, payloadFromHash, ShareError, shareUrl, toCompact } from './share';
+import type { ParseReport } from '../model/validate';
+import { decodeShare, encodeShare, fromCompact, payloadFromHash, ShareError, shareUrl, toCompact, type CompactV1 } from './share';
 
 /** Strip ids and timestamps, which are intentionally not preserved. */
 function shape(p: Project) {
@@ -75,6 +77,35 @@ describe('share codec', () => {
     expect(beats[1].splits.snare).toEqual([null, null, null, 38]);
     expect(beats[2].splits.kick).toEqual([null, 0, null, null]);
     expect(beats[2].splits.snare).toEqual([null, null, null, null]);
+  });
+
+  const hex = (vs: number[]) => vs.map((v) => v.toString(16).padStart(2, '0')).join('');
+  const v1Beat = (div: number, notes: Partial<Record<string, number[]>>) =>
+    String(div) + TRACK_IDS.map((t) => hex(notes[t] ?? new Array(div).fill(0))).join('');
+  const v1: CompactV1 = {
+    v: 1, n: 'Old link', b: 90, k: 'a', m: 0, h: 0, s: [0],
+    p: [['A', 0, [[v1Beat(4, { kick: [100, 0, 0, 0] }), v1Beat(4, {}), v1Beat(4, {}), v1Beat(3, { snare: [90, 80, 70] })]]]],
+  };
+
+  it('opens v1 links and converts their triplets', () => {
+    const report: ParseReport = { tripletsConverted: false };
+    const p = fromCompact(JSON.parse(JSON.stringify(v1)), report);
+    const beats = p.patterns[0].bars[0].beats;
+    expect(beats[0].cells.kick).toEqual([100, 0, 0, 0]);
+    expect(beats[3].cells.snare).toEqual([90, 0, 0, 0]);
+    expect(beats[3].splits.snare).toEqual([null, 80, 70, null]);
+    expect(report.tripletsConverted).toBe(true);
+    expect(projectProblems(p)).toEqual([]);
+  });
+
+  it('reports converted triplets when decoding an old payload', async () => {
+    const json = new TextEncoder().encode(JSON.stringify(v1));
+    const deflated = new Uint8Array(await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+    const payload = Buffer.from(deflated).toString('base64url');
+    const report: ParseReport = { tripletsConverted: false };
+    const p = await decodeShare(payload, report);
+    expect(p.name).toBe('Old link');
+    expect(report.tripletsConverted).toBe(true);
   });
 
   it('rejects malformed v2 beats', () => {

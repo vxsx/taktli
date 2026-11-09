@@ -81,6 +81,27 @@ describe('ProjectStorage', () => {
     expect(kv.getItem(KEYS.project('broken'))).toBe('{oops');
   });
 
+  it('resaves stored projects that had triplets, once', () => {
+    const kv = new MemoryStore();
+    const s = new ProjectStorage(kv);
+    const old = JSON.parse(JSON.stringify(createProject('Old')));
+    for (const beat of old.patterns[0].bars[0].beats) delete beat.splits;
+    old.version = 1;
+    old.patterns[0].bars[0].beats[3] = { div: 3, cells: { snare: [90, 80, 70] } };
+    const plain = createProject('Plain');
+    kv.setItem(KEYS.project(old.id), JSON.stringify(old));
+    kv.setItem(KEYS.index, JSON.stringify([{ id: old.id, name: 'Old', updatedAt: 1 }, { id: plain.id, name: 'Plain', updatedAt: 2 }]));
+    kv.setItem(KEYS.project(plain.id), JSON.stringify(plain));
+    const plainRaw = kv.getItem(KEYS.project(plain.id));
+
+    expect(s.resaveConverted()).toBe(1);
+    const stored = JSON.parse(kv.getItem(KEYS.project(old.id))!);
+    expect(stored.patterns[0].bars[0].beats[3].div).toBeUndefined();
+    expect(stored.patterns[0].bars[0].beats[3].splits.snare).toEqual([null, 80, 70, null]);
+    expect(kv.getItem(KEYS.project(plain.id))).toBe(plainRaw);
+    expect(s.resaveConverted()).toBe(0);
+  });
+
   it('deletes projects and forgets the last-opened id', () => {
     const s = new ProjectStorage(new MemoryStore());
     const p = createProject();

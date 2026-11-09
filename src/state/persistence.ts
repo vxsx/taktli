@@ -3,11 +3,13 @@ import { compressionSupported, decodeShare, payloadFromHash } from '../io/share'
 import { browserStore, createAutosaver, ProjectStorage } from '../io/storage';
 import { createDemoProject } from '../model/factory';
 import type { Project } from '../model/types';
+import type { ParseReport } from '../model/validate';
 import { appStore } from './store';
 
 export const storage = new ProjectStorage(browserStore());
 
 const SAVE_FAILED = "Can't save on this device — changes are kept until you close the page";
+export const TRIPLETS_REPLACED = 'Triplets were replaced by the nearest 32nds';
 let warnedSaveFailure = false;
 
 export function safeSave(p: Project): void {
@@ -37,13 +39,15 @@ export async function importSharedProject(hash: string): Promise<void> {
     return;
   }
   try {
-    const p = await decodeShare(payload);
+    const report: ParseReport = { tripletsConverted: false };
+    const p = await decodeShare(payload, report);
     transport.stop();
     flushAutosave();
     safeSave(p);
     appStore.getState().loadProject(p);
     storage.setLastProjectId(p.id);
     appStore.getState().toast(`Opened shared beat “${p.name}”`);
+    if (report.tripletsConverted) appStore.getState().toast(TRIPLETS_REPLACED);
   } catch {
     appStore.getState().toast('This link is invalid or damaged', 'error');
   }
@@ -64,6 +68,7 @@ export async function bootstrap(): Promise<void> {
   if (storage.forgetCorrupt() > 0) {
     appStore.getState().toast('Some saved projects were damaged and have been removed from the list', 'error');
   }
+  if (storage.resaveConverted() > 0) appStore.getState().toast(TRIPLETS_REPLACED);
 
   let project = storage.loadMostRecent();
   if (!project) {
