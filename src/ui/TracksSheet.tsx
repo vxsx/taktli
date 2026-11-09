@@ -1,4 +1,5 @@
 import { setTrackHidden, setTrackMuted } from '../model/ops';
+import { hasNotes } from '../model/timing';
 import { TRACKS } from '../model/tracks';
 import { toggleSolo } from '../state/actions';
 import { appStore, currentPattern, useApp } from '../state/store';
@@ -14,13 +15,13 @@ function TracksSheet() {
     <Sheet title="Tracks" onClose={closeModal}>
       {TRACKS.map((t) => {
         const s = tracks[t.id];
-        const hasNotes = pattern.bars.some((b) => b.beats.some((beat) => beat.cells[t.id].some((v) => v > 0)));
+        const played = pattern.bars.some((b) => b.beats.some((beat) => hasNotes(beat, t.id)));
         return (
           <div key={t.id} className={styles.row}>
             <span className={styles.swatch} style={{ background: t.color }} />
             <span className={styles.name}>
               {t.label}
-              {s.hidden && hasNotes && <em className={styles.badge}>has notes</em>}
+              {s.hidden && played && <em className={styles.badge}>has notes</em>}
             </span>
             <button aria-pressed={!s.hidden} aria-label={`Show ${t.label}`} onClick={() => apply((p) => setTrackHidden(p, t.id, !s.hidden))}>
               {s.hidden ? 'Hidden' : 'Shown'}

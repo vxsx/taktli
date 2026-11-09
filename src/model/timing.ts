@@ -26,6 +26,11 @@ export function velocityAt(beat: Beat, track: TrackId, cell: number, half: Half)
   return half === 0 ? beat.cells[track][cell] : (beat.splits[track][cell] ?? 0);
 }
 
+/** Whether a track plays anything in a beat, counting right halves. */
+export function hasNotes(beat: Beat, track: TrackId): boolean {
+  return beat.cells[track].some((v) => v > 0) || beat.splits[track].some((v) => (v ?? 0) > 0);
+}
+
 /**
  * Swing delay in ticks. Off-beat 16ths (cells 1 and 3) move later by the swing amount. A right half sits midway
  * between its cell's start and the next cell's, and exactly one of those two moves, so it moves by half as much.

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import type { PlayheadEvent } from '../audio/scheduler';
 import { isAudible } from '../model/timeline';
-import { TICKS_PER_BEAT } from '../model/timing';
+import { hasNotes, TICKS_PER_BEAT } from '../model/timing';
 import { TRACKS } from '../model/tracks';
 import * as actions from '../state/actions';
 import { appStore, currentPattern, useApp, type AppState } from '../state/store';
@@ -21,7 +21,7 @@ export function BarStrip() {
   const solo = useApp((s) => s.ui.solo);
   // Thumbnails skip rows the pattern never plays, so the notes that are there draw larger.
   const rows = useMemo(
-    () => TRACKS.filter((t) => !settings[t.id].hidden && pattern.bars.some((bar) => bar.beats.some((b) => b.cells[t.id].some((v) => v > 0)))),
+    () => TRACKS.filter((t) => !settings[t.id].hidden && pattern.bars.some((bar) => bar.beats.some((b) => hasNotes(b, t.id)))),
     [settings, pattern.bars],
   );
   const silent = useMemo(() => new Set(TRACKS.filter((t) => !isAudible(settings, solo, t.id)).map((t) => t.id)), [settings, solo]);

@@ -7,6 +7,7 @@ vi.mock('../audio/transport', () => ({
 }));
 
 import { createDemoProject } from '../model/factory';
+import { setTrackHidden, setVelocity, toggleSplit } from '../model/ops';
 import { appStore } from '../state/store';
 import { closeModal, ModalHost } from './modal';
 import { openTracksSheet } from './TracksSheet';
@@ -18,6 +19,16 @@ afterEach(() => {
 });
 
 describe('Tracks sheet', () => {
+  it('flags a hidden track whose only notes are right halves', () => {
+    act(() => appStore.getState().apply((p) => {
+      const pid = p.patterns[0].id;
+      return setTrackHidden(setVelocity(toggleSplit(p, pid, 0, 1, 'crossStick', 3), pid, 0, 1, 'crossStick', 3, 38, 1), 'crossStick', true);
+    }));
+    render(<ModalHost />);
+    act(openTracksSheet);
+    expect(screen.getByText('Cross-stick').querySelector('em')?.textContent).toBe('has notes');
+  });
+
   it('solos several tracks and shows which are soloed', () => {
     render(<ModalHost />);
     act(openTracksSheet);
